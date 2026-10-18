@@ -1,0 +1,14 @@
+{
+  "name": "token-usage-dev",
+  "private": true,
+  "description": "Development tools for the token-usage mod: the engine loads the mod without these.",
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "claude plugin test .",
+    "validate": "claude plugin validate .",
+    "check": "npm run typecheck && npm run validate && npm test"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}

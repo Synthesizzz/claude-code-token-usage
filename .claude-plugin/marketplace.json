@@ -1,0 +1,13 @@
+{
+  "name": "local-mods",
+  "description": "Mods for Claude Code by Synthesizzz: token-usage keeps context, rate limits and cost in view.",
+  "owner": {
+    "name": "Synthesizzz"
+  },
+  "plugins": [
+    {
+      "name": "token-usage",
+      "source": "./"
+    }
+  ]
+}

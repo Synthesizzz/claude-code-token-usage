@@ -1,0 +1,43 @@
+{
+  "name": "token-usage",
+  "version": "0.46.2",
+  "description": "A band above the prompt with context fill, the 5-hour and weekly windows, reset countdowns, a burn-rate forecast and cost. /tokens opens a detail pane; /tokens style, or words such as /tokens bars, change the layout, colours and labels.",
+  "author": {
+    "name": "Synthesizzz"
+  },
+  "license": "MIT",
+  "userConfig": {
+    "style": {
+      "type": "string",
+      "title": "Desktop band layout",
+      "description": "The layout the desktop app starts with: rings, bars, compact, frames or stack. A layout chosen with /tokens is kept and wins over this until /tokens reset.",
+      "default": "rings",
+      "options": [
+        "rings",
+        "bars",
+        "compact",
+        "frames",
+        "stack"
+      ]
+    },
+    "colorOk": {
+      "type": "string",
+      "title": "Colour below 60%",
+      "description": "Hex colour of a desktop ring or bar under 60% used, such as #3a9a53. Anything that is not a hex colour falls back to the default.",
+      "default": "#3a9a53"
+    },
+    "colorWarn": {
+      "type": "string",
+      "title": "Colour from 60%",
+      "description": "Hex colour of a desktop ring or bar from 60% used, such as #b07f00.",
+      "default": "#b07f00"
+    },
+    "colorFull": {
+      "type": "string",
+      "title": "Colour from 85%",
+      "description": "Hex colour of a desktop ring or bar from 85% used, such as #e04f63.",
+      "default": "#e04f63"
+    }
+  },
+  "types": "./types/index.d.ts"
+}
