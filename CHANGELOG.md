@@ -2,6 +2,10 @@
 
 What each version of token-usage added or changed, newest first. Versions before 0.5.2 came before the repository, and 0.10 to 0.12 have no commit of their own: their work is in 0.13.0.
 
+## Unreleased
+
+- The agents pane keeps every subagent of the session, where a later turn's first spawn let the turn before's go. Its head says `Subagents · this session`.
+
 ## 0.46.2
 
 - Keep warm judges its ping by what it read: a ping that read from the cache kept it. The first fork after a turn writes a block of its own besides its read (seen live: read 44.4k, wrote 32.4k, 30 seconds after a turn on Sonnet 5.5), which 0.46.0 took for a lapse: it said `The cache had already lapsed` and left the countdown where it was. Now the toast says what was kept and what the ping wrote once, and the cache's time starts over.

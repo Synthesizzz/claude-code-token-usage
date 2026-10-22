@@ -197,7 +197,7 @@ It is counted the free way, estimated on your machine; `Count exactly` counts it
 
 ## Subagents at work
 
-`/tokens agents` opens a pane of the subagents of the turn, a card each: its agent type and the task it was given, the tools it called (`Read×3 · Grep`), how long it has worked, a bar of its tokens against the busiest of them, and the tokens. Those at work come first. The pane reads how each stands from the session's agent list every two seconds while any runs, and keeps the last turn that had subagents until a later turn starts one.
+`/tokens agents` opens a pane of the subagents of the session, a card each: its agent type and the task it was given, the tools it called (`Read×3 · Grep`), how long it has worked, a bar of its tokens against the busiest of them, and the tokens. Those at work come first. The pane reads how each stands from the session's agent list every two seconds while any runs, and keeps every subagent the session has run, each turn's.
 
 Each card has a crab dressed for the job its type names: an explorer in a pith helmet with a magnifier (`Explore`, search), an architect in glasses drawing a blueprint (`Plan`, design), a builder in a hard hat with a hammer (`general-purpose`, build), a reviewer in an eyeshade ticking a clipboard (review, audit), a scientist in goggles with a bubbling flask (test, verify), a librarian turning a book's pages (guide, docs), and a crab in a red bandana at a laptop for any other name. While it works its tool moves; when it is done a tick badge pops over its hat and it holds its tool up, then after fourteen seconds it sleeps in its hat; one that failed or was stopped sweats, its hat askew. A terminal draws a mark (`●` at work, `✓`, `✕`), the type in the job's colour and a bar of eighths.
 

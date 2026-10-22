@@ -4,7 +4,7 @@ import type { TestBody } from 'claude-code/testing'
 import { TYPED, callOf } from './kit'
 
 import { jobCrabSvg, jobOf } from '../hooks/crab'
-import { DONE_MS, isBusy, joined, lineUp, newTurn, phaseOf, settled, spent, toolLine, used, workedFor } from '../hooks/crew'
+import { DONE_MS, isBusy, joined, lineUp, phaseOf, settled, spent, toolLine, used, workedFor } from '../hooks/crew'
 
 // The subagents of a turn, a card each, a crab dressed for its job.
 
@@ -45,7 +45,6 @@ test('the crew is joined at a spawn, counts its tools and tokens, and settles by
   crew = settled(crew, [], NOW + 70 * SECOND)
   expect(crew.a2).toMatchObject({ status: 'completed', endedAt: NOW + 70 * SECOND })
   expect(isBusy(crew)).toBe(false)
-  expect(newTurn(crew)).toEqual({})
 
   // One only the list has and still running, a spawn the mod did not see,
   // joins as the list tells it; one only the list has that has ended is a
@@ -230,7 +229,7 @@ const crabsOf = async ($: Parameters<TestBody>[0]) => {
   return seen
 }
 
-test('a subagent of the turn before stays gone once the next turn spawns, though the agent list still holds it', async ($, on) => {
+test('a subagent of the turn before stays once the next turn spawns: the pane keeps the whole session', async ($, on) => {
   const { listed, clock } = world(on)
 
   on('turn.start', (_, e) => ({ turnId: e.turnId }))
@@ -246,7 +245,7 @@ test('a subagent of the turn before stays gone once the next turn spawns, though
   await $.agent.spawn(spawn('Plan', 'plan the month'))
   await clock.advance(2 * SECOND)
 
-  expect((await crabsOf($)).filter(alt => alt.includes('crab'))).toEqual(['Plan crab, at work'])
+  expect((await crabsOf($)).filter(alt => alt.includes('crab'))).toEqual(['Plan crab, at work', 'Explore crab, done'])
 })
 
 test('a subagent counts its tokens as each of its responses ends, and its turn settles the sum', async ($, on) => {

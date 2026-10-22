@@ -1,4 +1,4 @@
-// The /tokens agents pane: the subagents of the turn, a card each, with a
+// The /tokens agents pane: the subagents of the session, a card each, with a
 // crab dressed for its job at work, done, asleep or failing.
 
 import { atom, read, update } from 'claude-code'
@@ -10,7 +10,7 @@ import { paletteFor } from './style'
 import { eighths } from './usage'
 import { CREW_TICK_MS, scope, styleOf, tick } from './state'
 
-// The subagents of the turn, by id.
+// The subagents of the session, by id.
 const crew = atom({ plugin: 'token-usage', key: 'crew' } as const, {})
 
 // The terminal's bar of a subagent's share, in cells.
@@ -71,7 +71,7 @@ export async function drawAgentsPane($: Parameters<DrawAgentsPaneHook>[0], e: Pa
   if (mates.length === 0) {
     return (
       <Text dimColor wrap="wrap">
-        No subagent has run yet in this session. When Claude starts one (Explore, Plan, ...), its card shows here, and the last turn that had some stays.
+        No subagent has run yet in this session. When Claude starts one (Explore, Plan, ...), its card shows here, and every one of the session stays.
       </Text>
     )
   }
@@ -81,7 +81,7 @@ export async function drawAgentsPane($: Parameters<DrawAgentsPaneHook>[0], e: Pa
   const total = mates.reduce((sum, mate) => sum + countOf(mate), 0)
   const head = (
     <Box justifyContent="space-between" gap={1}>
-      <Text weight="semibold">Subagents · this turn</Text>
+      <Text weight="semibold">Subagents · this session</Text>
       <Text dimColor>{`${running} running · ${shortTokens(total)}`}</Text>
     </Box>
   )

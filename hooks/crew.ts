@@ -100,9 +100,6 @@ export const settled = (crew: Crew, listed: readonly Listed[], at: number): Crew
 
 export const isBusy = (crew: Crew) => Object.values(crew).some(({ status }) => !isSettled(status))
 
-// A new turn begins: those still running stay, the rest are the last turn's.
-export const newTurn = (crew: Crew): Crew => Object.fromEntries(Object.entries(crew).filter(([, mate]) => !isSettled(mate.status)))
-
 export const phaseOf = (mate: Mate, at: number): JobPhase =>
   mate.status === 'failed' || mate.status === 'killed'
     ? 'fail'

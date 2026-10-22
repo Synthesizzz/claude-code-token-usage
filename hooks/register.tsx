@@ -28,7 +28,7 @@ import { compacted, measure, note, trouble } from './measure'
 import { SAMPLE, SAMPLE_WEEK, beginPause, bring, choose, compactIfAsked, endPause, forkFellShort, tell, testCache, testLapse } from './notices'
 import { drawAgentsPane, refreshCrew, watchCrew } from './pane-agents'
 import { drawContextPane } from './pane-context'
-import { joined, newTurn, spent, stepped, used } from './crew'
+import { joined, spent, stepped, used } from './crew'
 import { drawStylePane } from './pane-style'
 import { drawUsagePane } from './pane-usage'
 import {
@@ -194,9 +194,6 @@ export const register: Register = (on, options) => {
   let isHeavyTold = false
   // Where the running turn's tokens went, for the heavy turn's notice.
   let parts: TurnParts = NO_PARTS
-  // The main turn running now, and the one the crew was gathered in.
-  let mainTurn: string | null = null
-  let crewTurn: string | null = null
 
   on('session.start', async ($, e, next) => {
     scope.surface = e.surface ?? undefined
@@ -442,7 +439,6 @@ export const register: Register = (on, options) => {
   // The main loop's turn: its id is what a stop ends.
   on('turn.start', async ($, e, next) => {
     if (e.agentId === undefined) {
-      mainTurn = e.turnId
       await update($, turnNow, () => e.turnId)
     }
 
@@ -460,13 +456,7 @@ export const register: Register = (on, options) => {
       const subagent = done.agentId
       const at = await $.clock.now()
 
-      // The pane keeps the last turn that had subagents: the first spawn of a
-      // new turn lets the settled ones of the turn before go.
-      if (crewTurn !== mainTurn) {
-        crewTurn = mainTurn
-        await update($, crew, newTurn)
-      }
-
+      // The pane keeps every subagent of the session, each turn's.
       await update($, crew, held => joined(held, subagent, e.subagentType, e.description, at))
       watchCrew($, crewWatch)
     }
