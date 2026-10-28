@@ -8,7 +8,7 @@ import { isCrowded } from './alerts'
 import { EMPTY, budgetShare, isPlanOf, today, usd } from './cost'
 import { cacheHints, cachePhase, cacheWord, hasLapsedActions, learnedTtl } from './cache'
 import { contextNews, mixOf } from './context'
-import { CRAB_ROWS, SHARP_CRAB_ROWS, WORK_PX, crabCells, crabSvg, daysOf, idleSvg, moodOf, napSvg, stageSvg, toneOf } from './crab'
+import { CRAB_ROWS, WORK_PX, crabSvg, daysOf, idleSvg, moodOf, napSvg, stageSvg, toneOf } from './crab'
 import { RING_PX, fit, told } from './fit'
 import type { Wish } from './fit'
 import { paletteFor, words } from './style'
@@ -511,19 +511,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
       ))
     const hasCrabRows =
       e.props.maxRows >= CRAB_MIN_ROWS && e.props.bodyColumns >= CRAB_MIN_COLUMNS
-    // The finer crab where the band has its rows and the two beneath it.
-    const isSharp = e.props.maxRows >= SHARP_CRAB_ROWS + 2
-    const crabDrawn = isSharp
-      ? crabCells().map(runs => (
-          <Box>
-            {runs.map(({ text, color, backgroundColor }) => (
-              <Text {...(color === null ? {} : { color })} {...(backgroundColor === null ? {} : { backgroundColor })}>
-                {text}
-              </Text>
-            ))}
-          </Box>
-        ))
-      : CRAB_ROWS.map(row => <Text color={talk === null ? undefined : toneOf(talk.kind)}>{row}</Text>)
+    const crabDrawn = CRAB_ROWS.map(row => <Text color={talk === null ? undefined : toneOf(talk.kind)}>{row}</Text>)
     const second = hasSecondRow && (hasMix || hasCache || hasNews) ? (
       <Box gap={3} paddingLeft={SECOND_INDENT}>
         {hasMix && (
@@ -548,7 +536,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
               </Box>
             )}
             {isStaying && (
-              <Box flexDirection="column" flexShrink={1} minWidth={0} {...(isSharp ? { paddingTop: 1 } : {})}>
+              <Box flexDirection="column" flexShrink={1} minWidth={0}>
                 <Text weight="semibold" wrap="wrap">
                   {talk.title}
                 </Text>

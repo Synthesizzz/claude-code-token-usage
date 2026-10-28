@@ -2,7 +2,7 @@ import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
 import { loudest } from '../hooks/alerts'
-import { CRAB_ROWS, STAGE_PX, crabSvg, daysOf, moodOf, stageSvg, toneOf, SHARP_CRAB_ROWS, crabCells } from '../hooks/crab'
+import { CRAB_ROWS, STAGE_PX, crabSvg, daysOf, moodOf, stageSvg, toneOf } from '../hooks/crab'
 import { widthOf } from '../hooks/fit'
 import type { Fitted, Wish } from '../hooks/fit'
 import { apply, defaults } from '../hooks/style'
@@ -221,8 +221,8 @@ test('the crab peeks up out of the ground, looks about, pops up and sways; it wa
   expect(coming).toContain('prefers-reduced-motion')
 })
 
-test('the terminal crab is three rows of blocks, each as wide as the others', () => {
-  expect(CRAB_ROWS).toHaveLength(3)
+test('the terminal crab is four rows of blocks, each as wide as the others', () => {
+  expect(CRAB_ROWS).toHaveLength(4)
   expect(new Set(CRAB_ROWS.map(row => [...row].length)).size).toBe(1)
 })
 
@@ -482,21 +482,6 @@ test('a terminal draws the crab in blocks beside the notice, when it has the row
   const short = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...band(false, 3) })
 
   expect(await short.find({ type: 'Text', text: CRAB_ROWS[0] })).toBeUndefined()
-})
-
-test('a terminal with six rows draws the crab in half blocks, two pixels a cell, its eyes dark', async ($, on) => {
-  world(on)
-  await $.session.measure(reading(84))
-  await $.session.measure(reading(86))
-
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...band(false, 6) })
-  const texts = await ui.findAll({ type: 'Text' })
-
-  expect(await ui.find({ type: 'Text', text: CRAB_ROWS[0] })).toBeUndefined()
-  expect(texts.some(({ text, props }) => text.includes('▀') && props.backgroundColor === '#1f1e1d')).toBe(true)
-  expect(crabCells()).toHaveLength(SHARP_CRAB_ROWS)
-  expect(crabCells().every(row => row.reduce((width, { text }) => width + [...text].length, 0) === 16)).toBe(true)
-  expect((await ui.find({ type: 'Text', text: '5-hour window at 86%' }))?.props.weight).toBe('semibold')
 })
 
 // The 5-hour window steady at 20%, the weekly one at a given level.

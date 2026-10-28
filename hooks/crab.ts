@@ -35,8 +35,9 @@ export const STAGE_PX = { width: 208, height: 54 }
 const LETTERS_PX = 10
 const CALENDAR_PX = 22
 const BAR = { left: 8, top: 40, length: 192 }
-// The same creature in a terminal's blocks, each row as wide as the others.
-export const CRAB_ROWS = [' ▐▛███▜▌ ', '▝▜█████▛▘', '  ▘▘ ▝▝  '] as const
+// The same creature in a terminal's blocks, each row as wide as the others:
+// the slim four-row crab of the filetrail mod.
+export const CRAB_ROWS = ['  ▄▄▄▄  ', '▜▄█▐▌█▄▛', '▀▀████▀▀', '  ▌▌▐▐  '] as const
 
 const MOODS: Record<Notice['kind'], Mood> = {
   half: 'half',
@@ -466,56 +467,6 @@ export const stageSvg = (
     width,
     height,
   }
-}
-
-// The crab a terminal draws with its news where the band has the rows: half
-// blocks, two pixels to a cell, so it stands twice as fine as the block
-// characters, its body in the crab's colour and its eyes dark. `o` is the
-// body, `e` an eye.
-const PIXELS = [
-  '....oooooooo....',
-  '....oooooooo....',
-  '...ooooooooooo..',
-  '.ooooeeooeeoooo.',
-  '.o.oooooooooo.o.',
-  '...oooooooooo...',
-  '....o.o..o.o....',
-  '....o.o..o.o....',
-] as const
-
-export const SHARP_CRAB_ROWS = PIXELS.length / 2
-
-export type CrabRun = { text: string; color: string | null; backgroundColor: string | null }
-
-export const crabCells = (body: string = CRAB, eye: string = EYE): CrabRun[][] => {
-  const paint = (pixel: string | undefined) => (pixel === 'o' ? body : pixel === 'e' ? eye : null)
-  const rows: CrabRun[][] = []
-
-  for (let y = 0; y < PIXELS.length; y += 2) {
-    const runs: CrabRun[] = []
-
-    for (let x = 0; x < (PIXELS[0]?.length ?? 0); x += 1) {
-      const top = paint(PIXELS[y]?.[x])
-      const low = paint(PIXELS[y + 1]?.[x])
-      const cell: CrabRun =
-        top === null && low === null
-          ? { text: ' ', color: null, backgroundColor: null }
-          : top === null
-            ? { text: '▄', color: low, backgroundColor: null }
-            : { text: '▀', color: top, backgroundColor: low }
-      const before = runs.at(-1)
-
-      if (before !== undefined && before.color === cell.color && before.backgroundColor === cell.backgroundColor) {
-        before.text += cell.text
-      } else {
-        runs.push(cell)
-      }
-    }
-
-    rows.push(runs)
-  }
-
-  return rows
 }
 
 // A subagent's crab, dressed for its job: the same crab, a hat for the job,
