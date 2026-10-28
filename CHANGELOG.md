@@ -2,7 +2,7 @@
 
 What each version of token-usage added or changed, newest first. Versions before 0.5.2 came before the repository, and 0.10 to 0.12 have no commit of their own: their work is in 0.13.0.
 
-## Unreleased
+## 0.47.0
 
 - The agents pane keeps every subagent of the session, where a later turn's first spawn let the turn before's go. Its head says `Subagents · this session`.
 
