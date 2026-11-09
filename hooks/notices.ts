@@ -10,7 +10,7 @@ import { apply } from './style'
 import { CACHE_WARN_MS, WARM_TEXT, cacheNotice, cacheRates, isHeavyPing, isWarmPing, learnedTtl } from './cache'
 import { shortTokens } from './cost'
 import { isQuiet } from './usage'
-import { AGENTS_PANE, CACHE_TICK_MS, CHOICE_MS, FORK_SHORT_KEY, LEAVE_MS, NOTIFY_MS, SAY_MS, STYLE_KEY, SWITCH_FILE, scope, styleOf, tick } from './state'
+import { AGENTS_PANE, CACHE_TICK_MS, CHOICE_MS, FORK_SHORT_KEY, HANDOFF, LEAVE_MS, NOTIFY_MS, SAY_MS, STYLE_KEY, SWITCH_FILE, scope, styleOf, tick } from './state'
 import { stoppedAdvice } from './advice'
 import type { ChoiceKey } from './advice'
 
@@ -422,6 +422,25 @@ export async function compact($: EngineInterface, isWorking: boolean) {
   }
 }
 
+// What a Start fresh button does: clear the conversation, as ever; or, where
+// the person set a hand-off message, send it as their own. A turn that runs
+// would take it for the next prompt, so it waits, as Compact does.
+export async function startOver($: EngineInterface, handoff: string, isWorking: boolean) {
+  if (handoff === '') {
+    await $.command.run({ command: 'clear' })
+
+    return
+  }
+
+  if (isWorking) {
+    $.ui.toast(`Claude is still working: press ${HANDOFF} again when the turn ends.`)
+
+    return
+  }
+
+  await $.prompt.submit({ text: handoff, asUser: true })
+}
+
 // One path for a typed word and a pressed button: the state redraws the band
 // now, the store keeps the choice for the next session.
 export async function choose($: EngineInterface, base: Style, args: string) {
@@ -445,7 +464,14 @@ export async function choose($: EngineInterface, base: Style, args: string) {
 
 // What a choice the crab offers does. The crab goes first, whatever it was;
 // a stop ends the running turn at once and asks what next.
-export async function act($: EngineInterface, key: ChoiceKey, tokens: string) {
+export async function act($: EngineInterface, key: ChoiceKey, tokens: string, handoff = '', isWorking = false) {
+  // Hand off pressed while a turn runs only says to wait: the notice stays, to be pressed again.
+  if (key === 'fresh' && handoff !== '' && isWorking) {
+    await startOver($, handoff, isWorking)
+
+    return
+  }
+
   await hush($)
 
   switch (key) {
@@ -460,7 +486,7 @@ export async function act($: EngineInterface, key: ChoiceKey, tokens: string) {
         }
       }
 
-      const next = stoppedAdvice((await read($, usage))?.percent ?? null, tokens)
+      const next = stoppedAdvice((await read($, usage))?.percent ?? null, tokens, handoff)
 
       await say(
         $,
@@ -497,7 +523,7 @@ export async function act($: EngineInterface, key: ChoiceKey, tokens: string) {
 
       return
     case 'fresh':
-      await $.command.run({ command: 'clear' })
+      await startOver($, handoff, isWorking)
 
       return
     case 'continue':

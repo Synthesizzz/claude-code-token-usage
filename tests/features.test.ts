@@ -671,6 +671,57 @@ test('a heavy turn offers the choices that fit; Stop now ends the turn and asks 
   expect(submitted).toEqual(['Continue where you stopped.'])
 })
 
+test("with a handoff set, a stop offers Hand off, a press sends the message as the person's own, and one pressed while a turn runs waits", async ($, on) => {
+  const { seen } = world(on, NOON)
+  const submitted: { text: string; asUser: unknown }[] = []
+  const sizes = new Map<number, number>()
+
+  on('turn.start', (_, e) => ({ turnId: e.turnId }))
+  on('turn.abort', () => ({ value: undefined }))
+  on('prompt.submit', (_, e) => (submitted.push({ text: e.text, asUser: (e.origin as { asUser?: unknown } | undefined)?.asUser }), { text: e.text }) as never)
+  on('turn.step', async function* (_, e) {
+    const usage = { model: 'm', input_tokens: 0, output_tokens: 0, cache_read_input_tokens: sizes.get(e.index) ?? 0, cache_creation_input_tokens: 0 }
+
+    yield { kind: 'stop', stopReason: 'end_turn', usage } as never
+
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage }
+  })
+  await $.session.start(START)
+  await $.command.run({ ...TYPED, command: 'tokens', args: 'handoff Hand off now' })
+
+  for (const id of ['t1', 't2', 't3']) {
+    await $.turn.complete(turn(id))
+  }
+
+  await $.turn.start({ turnId: 'main-1', text: 'go' } as never)
+  sizes.set(0, 400_000)
+
+  const stream = $.turn.step(step(0, 400_000) as never)
+  let read = await stream.next()
+
+  while (read.done !== true) {
+    read = await stream.next()
+  }
+
+  const heavy = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...BAND })
+
+  await heavy.press({ key: 'choice-stop' })
+  await heavy.unmount()
+
+  const busy = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...BAND, props: { ...BAND.props, isWorking: true } })
+
+  expect((await busy.find({ type: 'Button', key: 'choice-fresh' }))?.props.label).toBe('Hand off')
+  await busy.press({ key: 'choice-fresh' })
+  expect(seen.toasts.at(-1)).toBe('Claude is still working: press Hand off again when the turn ends.')
+  expect(submitted).toEqual([])
+  await busy.unmount()
+
+  const after = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...BAND })
+
+  await after.press({ key: 'choice-fresh' })
+  expect(submitted).toEqual([{ text: 'Hand off now', asUser: true }])
+})
+
 test('a pressed choice sends its notice away at once, and Compact runs once the press has answered', async ($, on) => {
   const { clock } = world(on, NOON)
   const sizes = new Map<number, number>()

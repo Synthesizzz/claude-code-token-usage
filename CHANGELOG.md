@@ -2,8 +2,9 @@
 
 What each version of token-usage added or changed, newest first. Versions before 0.5.2 came before the repository, and 0.10 to 0.12 have no commit of their own: their work is in 0.13.0.
 
-## Unreleased
+## 0.48.0
 
+- `/tokens handoff <text|off>` turns every Start fresh button into **Hand off**: a press sends your text as your own message, where Start fresh cleared the conversation with `/clear`. It covers the lapsed cache's buttons in the band and the what-next choices after **Stop now**. Off to start with, so nothing changes until a message is set. A press while a turn runs says to press again when it ends.
 - The terminal crab is slim: four rows of blocks, eight cells wide, in place of the nine-wide one and the sixteen-wide one drawn in half blocks.
 
 ## 0.47.0

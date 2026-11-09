@@ -728,3 +728,74 @@ test('alerts test cache brings the warning now, and alerts test lapsed shows the
 
   expect(await after.find({ type: 'Button', key: 'fresh' })).toBeUndefined()
 })
+
+// Start fresh, or Hand off where the person set a message for it.
+
+test('with a handoff set, the hints name Hand off and the message it sends; unset, they are as they were', () => {
+  const plain = cacheHints(148_000)
+  const handed = cacheHints(148_000, { handoff: 'Hand off now' })
+
+  expect(plain.fresh).toBe('A new conversation (/clear): nothing is re-read, but Claude forgets this one. For something new.')
+  expect(cacheHints(148_000, { handoff: '' })).toEqual(plain)
+  expect(handed.fresh).toBe('Sends your hand-off message as your own turn: "Hand off now". The conversation is not cleared.')
+  expect(handed.gone).toBe('Your next turn writes all 148k again (about 296k at full price). Hand off sends your message as that turn; Compact pays once so the turns after it read less.')
+  // The other hints do not change.
+  expect(handed.compact).toBe(plain.compact)
+})
+
+const lapsedBand = async ($: Engine, on: On, handoff: string | null, isWorking = false) => {
+  const toasts: string[] = []
+  const submitted: { text: string; asUser: unknown }[] = []
+  const cleared: string[] = []
+
+  on('ui.toast', (_, e) => (toasts.push(e.text), { value: undefined }) as never)
+  on('prompt.submit', (_, e) => (submitted.push({ text: e.text, asUser: (e.origin as { asUser?: unknown } | undefined)?.asUser }), { text: e.text }) as never)
+  on('command.run', { command: 'clear' }, (_, e) => (cleared.push(e.command), { text: '' }))
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.session.measure(measure(140_000))
+
+  if (handoff !== null) {
+    await $.command.run({ ...TYPED, command: 'tokens', args: `handoff ${handoff}` })
+  }
+
+  await $.command.run({ ...TYPED, command: 'tokens', args: 'alerts test lapsed' })
+
+  const band = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND, props: { ...BAND.props, isWorking } } as never)
+
+  return { band, toasts, submitted, cleared }
+}
+
+test("with a handoff set, the lapsed band offers Hand off, and a press sends the message as the person's own", async ($, on) => {
+  world(on)
+
+  const { band, submitted, cleared } = await lapsedBand($, on, 'Hand off now')
+  const button = await band.find({ type: 'Button', key: 'fresh' })
+
+  expect(button?.props.label).toBe('Hand off')
+  expect(await band.find({ type: 'Text', text: 'Sends your hand-off message as your own turn: "Hand off now". The conversation is not cleared.' })).toBeDefined()
+
+  await band.press({ key: 'fresh' })
+
+  expect(submitted).toEqual([{ text: 'Hand off now', asUser: true }])
+  expect(cleared).toEqual([])
+})
+
+test('with no handoff set, the lapsed band still offers Start fresh, and a press runs /clear', async ($, on) => {
+  world(on)
+
+  const { band, submitted, cleared } = await lapsedBand($, on, null)
+
+  expect((await band.find({ type: 'Button', key: 'fresh' }))?.props.label).toBe('Start fresh')
+  await band.press({ key: 'fresh' })
+  expect(cleared).toEqual(['clear'])
+  expect(submitted).toEqual([])
+})
+
+test('handoff off puts Start fresh back on the lapsed band', async ($, on) => {
+  world(on)
+
+  const { band, submitted } = await lapsedBand($, on, 'off')
+
+  expect((await band.find({ type: 'Button', key: 'fresh' }))?.props.label).toBe('Start fresh')
+  expect(submitted).toEqual([])
+})

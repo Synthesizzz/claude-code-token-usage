@@ -2,6 +2,7 @@
 // is heavy, and the choices that fit, the one that fits best first.
 
 import { cacheRates, shareOf } from './cache'
+import { freshLabel } from './state'
 
 export type ChoiceKey = 'stop' | 'keep' | 'agents' | 'compactAfter' | 'raise' | 'compact' | 'fresh' | 'continue' | 'warm' | 'lapse'
 
@@ -124,17 +125,20 @@ const STOPPED_AT = 50
 
 // After a stop, what to do next: with the context half full or more, compact
 // it; with less, start fresh; or go on where it stopped.
-export const stoppedAdvice = (context: number | null, tokens: string) => {
+// Where the person set a hand-off message, Hand off stands for Start fresh: it
+// sends the message instead of clearing.
+export const stoppedAdvice = (context: number | null, tokens: string, handoff = '') => {
   const compact: Choice = { key: 'compact', label: 'Compact' }
-  const fresh: Choice = { key: 'fresh', label: 'Start fresh' }
+  const fresh: Choice = { key: 'fresh', label: freshLabel(handoff) }
+  const isHanded = handoff !== ''
   const goOn: Choice = { key: 'continue', label: 'Continue' }
   const isFull = context !== null && context >= STOPPED_AT
 
   return {
     title: tokens === '' ? 'Stopped. What next?' : `Stopped after ${tokens} tokens. What next?`,
     text: isFull
-      ? `The context is at ${Math.round(context ?? 0)}%: Compact keeps a summary and frees it; Start fresh clears it.`
-      : 'Start fresh clears the conversation for a new start; Continue goes on where it stopped.',
+      ? `The context is at ${Math.round(context ?? 0)}%: Compact keeps a summary and frees it; ${isHanded ? 'Hand off sends your hand-off message' : 'Start fresh clears it'}.`
+      : `${isHanded ? 'Hand off sends your hand-off message' : 'Start fresh clears the conversation for a new start'}; Continue goes on where it stopped.`,
     choices: isFull ? [compact, fresh, goOn] : [fresh, goOn, compact],
   }
 }

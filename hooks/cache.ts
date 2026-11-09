@@ -158,11 +158,13 @@ type Said = {
   // Keep warm sends a turn that shows, where its quiet ping did not hold the
   // cache.
   isWarmShown?: boolean
+  // The message Hand off sends, where the person set one for Start fresh.
+  handoff?: string
 }
 
 // What each way out does and costs, said while the pointer rests on it. The
 // figures are the API's price in tokens at the full input price.
-export const cacheHints = (context: number | null, { rates = cacheRates(null, null), usd = null, isWarmShown = false }: Said = {}) => {
+export const cacheHints = (context: number | null, { rates = cacheRates(null, null), usd = null, isWarmShown = false, handoff = '' }: Said = {}) => {
   const n = context === null ? 'the context' : shortTokens(context)
   const dollars = usd === null ? '' : `, $${usd.toFixed(2)} at API price`
   const at = (price: number, isPriced = false) =>
@@ -175,9 +177,12 @@ export const cacheHints = (context: number | null, { rates = cacheRates(null, nu
       : `Reads ${n} from the cache once${at(rates.read)}, without a turn: nothing shows in the conversation, and the cache's time starts over. For a long break, Compact now costs less.`,
     lapse: `Nothing is sent. Your next turn writes ${n} to the cache again${at(rates.write, true)}.`,
     why: `Every step of a turn reads all ${n} again${at(rates.read)}. Once the cache lapses, the next turn writes it all again${at(rates.write, true)}, ${Math.floor(rates.write / rates.read)} times a cached step. A smaller context makes every step and every lapse cheaper.`,
-    fresh: 'A new conversation (/clear): nothing is re-read, but Claude forgets this one. For something new.',
+    fresh:
+      handoff === ''
+        ? 'A new conversation (/clear): nothing is re-read, but Claude forgets this one. For something new.'
+        : `Sends your hand-off message as your own turn: "${handoff}". The conversation is not cleared.`,
     compactLapsed: `Reads ${n} once more to summarise it${at(1)}. The turns after it read the summary, not ${n}. Worth it if you'll carry on for a while.`,
-    gone: `Your next turn writes all ${n} again${at(rates.write, true)}. Start fresh re-reads nothing; Compact pays once so the turns after it read less.`,
+    gone: `Your next turn writes all ${n} again${at(rates.write, true)}. ${handoff === '' ? 'Start fresh re-reads nothing' : 'Hand off sends your message as that turn'}; Compact pays once so the turns after it read less.`,
   }
 }
 

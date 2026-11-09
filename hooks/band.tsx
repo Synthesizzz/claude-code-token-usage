@@ -30,7 +30,7 @@ import {
   turnsLeft,
 } from './usage'
 import { note, trouble } from './measure'
-import { act, cacheSaid as pricing, compact, heard, hush } from './notices'
+import { act, cacheSaid as pricing, compact, heard, hush, startOver } from './notices'
 import { cellsOfSplit, splitSvg } from './advice'
 import type { ChoiceKey } from './advice'
 import {
@@ -39,12 +39,12 @@ import {
   CONTEXT_PANE,
   CRAB_MIN_COLUMNS,
   CRAB_MIN_ROWS,
-  FRESH,
   HINT_MIN_ROWS,
   NEAR_MS,
   RESET_MS,
   SLEEP_MS,
   SOON_TURNS,
+  freshLabel,
   saneBreakdown,
   scope,
   shown,
@@ -139,6 +139,8 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
     // it, so the band offers to start fresh or compact first.
     const isLapsed = hasLapsedActions(cachePart, idleTokens)
     const hasCompact = isCrowded(percent) || isSoon || isLapsed
+    // Start fresh, or Hand off where the person set a message for it.
+    const startLabel = freshLabel(style.handoff)
     const compactPress = (
       <Button
         key="compact"
@@ -150,13 +152,13 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
     )
     const press = !hasCompact ? null : isLapsed ? (
       <Box gap={1}>
-        <Button key="fresh" label={FRESH} hover={{ scope: HINT_FRESH }} onPress={() => void $.command.run({ command: 'clear' })} />
+        <Button key="fresh" label={startLabel} hover={{ scope: HINT_FRESH }} onPress={() => void startOver($, style.handoff, e.props.isWorking)} />
         {compactPress}
       </Box>
     ) : (
       compactPress
     )
-    const action = !hasCompact ? null : isLapsed ? `${FRESH}    ${COMPACT}` : COMPACT
+    const action = !hasCompact ? null : isLapsed ? `${startLabel}    ${COMPACT}` : COMPACT
     // In quiet hours the band says until when; the crab sleeps through them.
     const quiet =
       style.quiet !== null && isQuiet(style.quiet, at)
@@ -359,21 +361,21 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
           hotkey={String(index + 1)}
           {...(index === 0 ? { variant: 'primary' as const } : {})}
           {...(hint === undefined ? {} : { hover: { scope: `${HINT}choice-${key}` } })}
-          onPress={() => act($, key as ChoiceKey, talk?.bar.label ?? '')}
+          onPress={() => act($, key as ChoiceKey, talk?.bar.label ?? '', style.handoff, e.props.isWorking)}
         />
       ))
       const split = talk?.split ?? []
       // What a choice or the cache's word does and costs, each hidden until the
       // pointer rests on it. They open at the band's top: the band grows up
       // from the prompt, so what the pointer rests on stays where it is.
-      const hints = cacheHints(idleTokens, await pricing($, ttl, paused?.usd ?? null))
+      const hints = cacheHints(idleTokens, { ...(await pricing($, ttl, paused?.usd ?? null)), handoff: style.handoff })
       const hinted = [
         ...(isStaying
           ? (talk?.choices ?? []).flatMap(({ key, label, hint }) => (hint === undefined ? [] : [{ scope: `${HINT}choice-${key}`, label, hint }]))
           : []),
         ...(isLapsed
           ? [
-              { scope: HINT_FRESH, label: FRESH, hint: hints.fresh },
+              { scope: HINT_FRESH, label: startLabel, hint: hints.fresh },
               { scope: HINT_COMPACT, label: COMPACT, hint: hints.compactLapsed },
             ]
           : []),
@@ -567,7 +569,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
                         label={`${index + 1} ${label}`}
                         hotkey={String(index + 1)}
                         {...(index === 0 ? { variant: 'primary' as const } : {})}
-                        onPress={() => act($, key as ChoiceKey, talk.bar.label)}
+                        onPress={() => act($, key as ChoiceKey, talk.bar.label, style.handoff, e.props.isWorking)}
                       />
                     ))}
                     <Button key="crab-ok" label="OK" onPress={() => hush($)} />

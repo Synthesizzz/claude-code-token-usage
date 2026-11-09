@@ -109,6 +109,11 @@ export const COMPACT = 'Compact'
 
 export const FRESH = 'Start fresh'
 
+// Where the person set a message for it, the same button sends that.
+export const HANDOFF = 'Hand off'
+
+export const freshLabel = (handoff: string) => (handoff === '' ? FRESH : HANDOFF)
+
 export const NOTIFY_MS = 20_000
 
 // The heaviest turns' table: cells for the time and the tokens, and the

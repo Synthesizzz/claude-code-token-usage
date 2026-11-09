@@ -102,6 +102,7 @@ test('the defaults are the double rings in the classic colours, everything shown
     quiet: null,
     hasPopup: true,
     background: null,
+    handoff: '',
   })
 })
 
@@ -947,4 +948,39 @@ test('alerts test raises nothing outside the app when alerts stay in it', async 
     'Test alert raised.',
   )
   expect(runs).toHaveLength(0)
+})
+
+test('handoff <text> keeps the text as typed, handoff off clears it, and the word alone says what is set', () => {
+  const set = apply(BASE, 'handoff  Hand off now, please ')
+
+  expect(set).toMatchObject({ style: { handoff: 'Hand off now, please' }, text: 'Hand off: sends "Hand off now, please" as your own message.' })
+  // Kept as typed: case and the spaces inside it stand.
+  expect(apply(BASE, 'HANDOFF Write Notes  and Stop')).toMatchObject({ style: { handoff: 'Write Notes  and Stop' } })
+
+  const kept = { ...BASE, handoff: 'Hand off now' }
+
+  expect(apply(kept, 'handoff off')).toMatchObject({ style: { handoff: '' }, text: 'Hand off: off. Start fresh clears the conversation.' })
+  expect(apply(kept, 'handoff')).toEqual({ text: 'Hand off sends "Hand off now" as your own message. handoff off puts Start fresh back.' })
+  expect(apply(BASE, 'handoff')).toEqual({ text: 'Hand off is off: Start fresh clears the conversation. Set one with: handoff <the message to send>.' })
+  // Only the one word: a text that merely begins with it is not the setting.
+  expect(apply(BASE, 'handoffs now')).toMatchObject({ text: expect.stringContaining('Unknown') })
+})
+
+test('a handoff is kept with the style, a style from before it had a place has none, and list names it', () => {
+  expect(BASE.handoff).toBe('')
+  expect(sane({ ...BASE, handoff: 'Hand off now' })?.handoff).toBe('Hand off now')
+  expect(sane({ ...BASE, handoff: 7 })?.handoff).toBe('')
+  expect(sane({ ...BASE, handoff: '   ' })?.handoff).toBe('')
+
+  const { handoff: _unset, ...before } = BASE
+
+  expect(sane(before)?.handoff).toBe('')
+
+  const listed = apply({ ...BASE, handoff: 'Hand off now' }, 'list')
+
+  expect('text' in listed && listed.text).toContain('hand off "Hand off now"')
+  expect((apply(BASE, 'list') as { text: string }).text).not.toContain('hand off')
+  expect(apply(BASE, 'help')).toMatchObject({ text: expect.stringContaining('handoff <text|off>') })
+  // A reset puts Start fresh back.
+  expect(apply({ ...BASE, handoff: 'Hand off now' }, 'reset')).toEqual({ reset: true, text: 'Style reset to the defaults.' })
 })

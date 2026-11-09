@@ -102,6 +102,8 @@ export type Style = {
   hasPopup: boolean
   // A fill behind the desktop band, inside the app's own frame; null draws none.
   background: string | null
+  // What Hand off sends as the person's own message, where Start fresh stood; '' keeps Start fresh.
+  handoff: string
 }
 
 // Tokens by local day, then by project, for every session.

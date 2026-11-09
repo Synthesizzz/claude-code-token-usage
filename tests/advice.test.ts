@@ -59,3 +59,16 @@ test('after a stop, a full context is compacted first, a light one started fresh
   expect(stoppedAdvice(72, '1.2M')).toMatchObject({ title: 'Stopped after 1.2M tokens. What next?', choices: [{ key: 'compact' }, { key: 'fresh' }, { key: 'continue' }] })
   expect(stoppedAdvice(20, '')).toMatchObject({ title: 'Stopped. What next?', choices: [{ key: 'fresh' }, { key: 'continue' }, { key: 'compact' }] })
 })
+
+test('with a handoff set, a stop offers Hand off where it offered Start fresh, under the same key', () => {
+  const plain = stoppedAdvice(20, '')
+  const handed = stoppedAdvice(20, '', 'Hand off now')
+
+  expect(plain.choices.find(({ key }) => key === 'fresh')?.label).toBe('Start fresh')
+  expect(handed.choices.find(({ key }) => key === 'fresh')?.label).toBe('Hand off')
+  expect(handed.choices.map(({ key }) => key)).toEqual(['fresh', 'continue', 'compact'])
+  expect(handed.text).toBe('Hand off sends your hand-off message; Continue goes on where it stopped.')
+  expect(stoppedAdvice(72, '1.2M', 'Hand off now').text).toBe('The context is at 72%: Compact keeps a summary and frees it; Hand off sends your hand-off message.')
+  // Nothing set: the words are as they were.
+  expect(stoppedAdvice(20, '', '')).toEqual(plain)
+})

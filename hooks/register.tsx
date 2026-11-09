@@ -203,7 +203,7 @@ export const register: Register = (on, options) => {
       name: 'tokens',
       description: 'Show token usage in a pane, or change how the band looks',
       argumentHint:
-        '[help | style | agents | context | list | reset | <preset> | layout <name> | palette <name> | color <ok|warn|full> <#hex> | color background <#hex|off> | labels <name> | show|hide <part> | alerts <on|off|both|app|windows> | alerts popup|privacy on|off | alerts quiet <22-8|off> | budget <$|off> | budget week|month <$|off> | export | tidy [now]]',
+        '[help | style | agents | context | list | reset | <preset> | layout <name> | palette <name> | color <ok|warn|full> <#hex> | color background <#hex|off> | labels <name> | show|hide <part> | alerts <on|off|both|app|windows> | alerts popup|privacy on|off | alerts quiet <22-8|off> | budget <$|off> | budget week|month <$|off> | handoff <text|off> | export | tidy [now]]',
     })
     await setUp($)
     // A countdown moves while nothing is measured: the clock redraws it.

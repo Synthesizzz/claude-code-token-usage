@@ -72,6 +72,7 @@ const HELP = [
   `  parts: show|hide <${PARTS.join('|')}>`,
   `  alerts: alerts <on|off|${NOTIFY.join('|')}>, alerts 60 <on|off>, alerts popup <on|off>, alerts privacy <on|off>, alerts quiet <from-to|off>`,
   '  budgets: budget <dollars a day|off>, budget week <dollars|off>, budget month <dollars|off>, budget project <name|here> <dollars|off>',
+  '  hand off: handoff <text|off>, the message the Start fresh buttons send as your own, instead of clearing',
   '  data: export, tidy [now], reset',
   'checks:',
   '  alerts test [week|cache|lapsed]',
@@ -106,6 +107,7 @@ export const defaults = (options: Readonly<Record<string, unknown>>): Style => {
     quiet: null,
     hasPopup: true,
     background: null,
+    handoff: '',
   }
 }
 
@@ -150,7 +152,7 @@ export const sane = (value: unknown): Style | null => {
     return null
   }
 
-  const { layout, palette, colors, labels, hidden, notify, hasEarlyAlert, budget, weekBudget, monthBudget, projectBudgets, isPrivate, quiet, hasPopup, background } =
+  const { layout, palette, colors, labels, hidden, notify, hasEarlyAlert, budget, weekBudget, monthBudget, projectBudgets, isPrivate, quiet, hasPopup, background, handoff } =
     value as Record<string, unknown>
 
   if (!among(LAYOUTS, layout) || !among(PALETTE_NAMES, palette) || !among(LABEL_SETS, labels)) {
@@ -189,6 +191,8 @@ export const sane = (value: unknown): Style | null => {
     hasPopup: hasPopup !== false,
     // A style kept before backgrounds had a place has none.
     background: isHex(background) ? background : null,
+    // A style kept before Hand off had a place has none: Start fresh stands.
+    handoff: typeof handoff === 'string' ? handoff.trim() : '',
   }
 }
 
@@ -263,6 +267,7 @@ const describe = (style: Style) => {
     style.quiet === null ? null : `quiet ${hour(style.quiet.from)} to ${hour(style.quiet.to)}`,
     style.hasPopup ? null : 'popup off',
     style.background === null ? null : `background ${style.background}`,
+    style.handoff === '' ? null : `hand off "${style.handoff}"`,
   ]
     .filter(line => line !== null)
     .join(', ')
@@ -416,6 +421,24 @@ export const apply = (style: Style, args: string): Outcome => {
 
   // `budget project <name> <dollars|off>`: the name may have spaces, and
   // `here` is the session's own folder, put in before the words come here.
+  // `handoff <text>`: the text is kept as typed, its case and spaces inside.
+  if (word === 'handoff') {
+    const text = args.trim().replace(/^\S+\s*/, '')
+
+    if (text === '') {
+      return {
+        text:
+          style.handoff === ''
+            ? 'Hand off is off: Start fresh clears the conversation. Set one with: handoff <the message to send>.'
+            : `Hand off sends "${style.handoff}" as your own message. handoff off puts Start fresh back.`,
+      }
+    }
+
+    return text.toLowerCase() === 'off'
+      ? { style: { ...style, handoff: '' }, text: 'Hand off: off. Start fresh clears the conversation.' }
+      : { style: { ...style, handoff: text }, text: `Hand off: sends "${text}" as your own message.` }
+  }
+
   if (word === 'budget' && value === 'project') {
     const rest = args.trim().split(/\s+/).slice(2)
     const last = (rest.at(-1) ?? '').toLowerCase()
