@@ -262,10 +262,10 @@ A name is the folder the session runs in and how its first prompt began, cut at 
 `~/.claude/token-usage/fleet.json` holds the open sessions for another program, rewritten at the end of each turn and as a session ends:
 
 ```json
-{ "writtenAt": 0, "sessions": [{ "id": "", "label": "", "cwd": "", "at": 0, "tokens": 0, "ttl": 3600000, "isWorking": false, "phase": "warm", "wakeTokens": 0 }] }
+{ "writtenAt": 0, "sessions": [{ "id": "", "label": "", "cwd": "", "at": 0, "tokens": 0, "ttl": 3600000, "isWorking": false, "phase": "warm", "wakeTokens": 0, "hostId": "local_…" }] }
 ```
 
-`phase` and `wakeTokens` are as they stood at `writtenAt`: work the phase out again from `at` and `ttl`. Sessions write it in turn, so a read may find it half written: read it again.
+`hostId` is the desktop app's own id for the session, the one its session tools take, and `null` where the app gives none. `phase` and `wakeTokens` are as they stood at `writtenAt`: work the phase out again from `at` and `ttl`. Sessions write it in turn, so a read may find it half written: read it again.
 
 ## Hand off instead of Start fresh
 

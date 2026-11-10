@@ -2,6 +2,11 @@
 
 What each version of token-usage added or changed, newest first. Versions before 0.5.2 came before the repository, and 0.10 to 0.12 have no commit of their own: their work is in 0.13.0.
 
+## 0.51.1
+
+- Each fleet file and each row of `fleet.json` carries `hostId`, the desktop app's own id for the session (`local_…`), so a program that knows a session by that id finds its row. It is `null` outside the desktop app and in a file written before 0.51.1.
+- A session that another session started is named by its task, not by the background text the app puts at the start of every such session.
+
 ## 0.51.0
 
 - The fleet: every open session at a glance. Each session keeps a small file of its own under `~/.claude/token-usage/fleet/` (when it last replied, its context, its model and how long its cache lasts) and reads everyone's.

@@ -31,7 +31,7 @@ import { drawContextPane } from './pane-context'
 import { joined, spent, stepped, used } from './crew'
 import { keepSteps, nextText } from './next'
 import { fleetRows, fleetText, labelOf } from './fleet'
-import { fleetFile, keepFleet, keepSummary, refreshFleet, turnEnded } from './fleet-io'
+import { fleetFile, hostIdOf, keepFleet, keepSummary, refreshFleet, turnEnded } from './fleet-io'
 import { stepText } from './usage'
 import { drawStylePane } from './pane-style'
 import { drawUsagePane } from './pane-usage'
@@ -180,7 +180,7 @@ async function setUp($: EngineInterface) {
 
   await update($, restSince, () => begun)
   // The session joins the fleet, and sees who else is open.
-  await keepFleet($, scope.cwd, {})
+  await keepFleet($, scope.cwd, { hostId: await hostIdOf($) })
   await refreshFleet($)
 }
 

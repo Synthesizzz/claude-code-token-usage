@@ -201,6 +201,9 @@ export type FleetEntry = {
   ttl: number | null
   isWorking: boolean
   ended: number | null
+  // The app's own id for the session, where the app says it: another program
+  // knows the session by this one.
+  hostId: string | null
 }
 
 declare module 'claude-code' {

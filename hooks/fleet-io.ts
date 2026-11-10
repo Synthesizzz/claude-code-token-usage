@@ -23,6 +23,17 @@ async function homeOf($: EngineInterface) {
   return typeof home === 'string' && home !== '' ? home : null
 }
 
+// The app's own id for this session (the desktop app says it), or null.
+export async function hostIdOf($: EngineInterface) {
+  try {
+    const id = await $.env.get('CLAUDE_CODE_HOST_SESSION_ID')
+
+    return typeof id === 'string' && id !== '' ? id : null
+  } catch {
+    return null
+  }
+}
+
 // This session's fleet file, or null where there is no home folder or no id.
 export async function fleetFile($: EngineInterface) {
   try {
@@ -68,6 +79,7 @@ export async function keepFleet($: EngineInterface, cwd: string, patch: FleetPat
       ttl: null,
       isWorking: false,
       ended: null,
+      hostId: null,
     }
     const more = typeof patch === 'function' ? patch(base) : patch
     const entry: FleetEntry = { ...base, cwd: cwd === '' ? base.cwd : cwd, ...more, id: file.id, ...(isEnd ? {} : { ended: null }) }
@@ -170,6 +182,7 @@ export const fleetSummary = (entries: readonly FleetEntry[], now: number) => {
         isWorking: entry.isWorking,
         phase,
         wakeTokens: wakeTokens(entry, phase),
+        hostId: entry.hostId,
       }
     }),
   }

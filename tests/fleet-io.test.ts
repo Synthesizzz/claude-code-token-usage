@@ -23,12 +23,12 @@ const done = (turnId: string, agentId?: string) =>
 
 type Files = Record<string, { text: string; mtimeMs: number }>
 
-const world = (on: On, files: Files, session: { id: string; refuse?: boolean }) => {
+const world = (on: On, files: Files, session: { id: string; refuse?: boolean; host?: string }) => {
   const clock = mock.clock(on, { now: NOW })
   const slashed = (path: string) => path.replaceAll(String.fromCharCode(92), '/')
 
   mock.store(on)
-  mock.env(on, { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me' })
+  mock.env(on, { OS: 'Windows_NT', USERPROFILE: 'C:/Users/me', ...(session.host === undefined ? {} : { CLAUDE_CODE_HOST_SESSION_ID: session.host }) })
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('session.id', () => ({ value: session.id }))
   on('session.end', (_, e) => ({ sessionId: e.sessionId }))
@@ -106,7 +106,7 @@ test("a session's file follows it: open, working, its first prompt's name, the r
   const { clock } = world(on, files, { id: 'mine' })
 
   await $.session.start({ cwd: 'D:/work/hub', surface: 'desktop', isInteractive: true })
-  expect(own(files, 'mine')).toMatchObject({ id: 'mine', cwd: 'D:/work/hub', label: '', at: NOW, isWorking: false, ended: null })
+  expect(own(files, 'mine')).toMatchObject({ id: 'mine', cwd: 'D:/work/hub', label: '', at: NOW, isWorking: false, ended: null, hostId: null })
 
   await $.turn.start({ turnId: 'main-1', text: '[rollover จาก local_x] Continue the fleet' } as never)
   expect(own(files, 'mine')).toMatchObject({ isWorking: true, startedAt: NOW, label: 'hub · Continue the fleet' })
@@ -160,8 +160,9 @@ test('every open session is read back into the summary and /tokens fleet; an end
     [`${DIR}/half.json`]: { text: '{"id":"half","at":', mtimeMs: NOW },
   }
 
-  world(on, files, { id: 'mine' })
+  world(on, files, { id: 'mine', host: 'local_mine' })
   await $.session.start({ cwd: 'D:/work/hub', surface: 'desktop', isInteractive: true })
+  expect(own(files, 'mine').hostId).toBe('local_mine')
   await $.turn.start({ turnId: 'main-1', text: 'Fleet check' } as never)
   await $.session.measure(sized(120_000))
   await $.turn.complete(done('main-1'))
@@ -171,6 +172,9 @@ test('every open session is read back into the summary and /tokens fleet; an end
   expect(summary.writtenAt).toBe(NOW)
   expect(summary.sessions.map((row: { id: string }) => row.id).sort()).toEqual(['gone1', 'mine', 'warm1'])
   expect(summary.sessions.find((row: { id: string }) => row.id === 'gone1')).toMatchObject({ phase: 'gone', wakeTokens: 600_000, ttl: 60 * MINUTE })
+  // The app's own id rides along, so a program that knows a session by it finds the row; a file from before has none.
+  expect(summary.sessions.find((row: { id: string }) => row.id === 'mine')).toMatchObject({ hostId: 'local_mine' })
+  expect(summary.sessions.find((row: { id: string }) => row.id === 'warm1')).toMatchObject({ hostId: null })
 
   const said = (await $.command.run({ ...TYPED, command: 'tokens', args: 'fleet' })).text ?? ''
 

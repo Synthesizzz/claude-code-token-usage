@@ -18,6 +18,7 @@ const entry = (id: string, more: Partial<FleetEntry> = {}): FleetEntry => ({
   ttl: FLEET_TTL,
   isWorking: false,
   ended: null,
+  hostId: null,
   ...more,
 })
 
@@ -36,7 +37,10 @@ test('a file not shaped as an entry reads as none, and missing fields as empty',
     ttl: null,
     isWorking: false,
     ended: null,
+    hostId: null,
   })
+  expect(saneEntry({ id: 'a', at: 5, hostId: 'local_abc' })?.hostId).toBe('local_abc')
+  expect(saneEntry({ id: 'a', at: 5, hostId: 7 })?.hostId).toBe(null)
 })
 
 test("a label is the folder and the first prompt's start, without the harness's tags and notes", () => {
@@ -45,6 +49,21 @@ test("a label is the folder and the first prompt's start, without the harness's 
   expect(labelOf('/home/me/app', '<system-reminder>ignore this</system-reminder>  fix   the band')).toBe('app · fix the band')
   expect(labelOf('/home/me/app', '<system-reminder>only this</system-reminder>')).toBe('app')
   expect(labelOf('', 'hello')).toBe('(no folder) · hello')
+})
+
+test('a session started from another is named by its task, not by the background it was handed', () => {
+  const handed = [
+    'Background (from the session that started this one):',
+    'The band work is half done.',
+    '',
+    'Task:',
+    '[rollover จาก local_x เวลา 21:31]',
+    "Continue the unit's work from the handoff",
+  ].join('\n')
+
+  expect(labelOf('D:/work/hub', handed)).toBe("hub · Continue the unit's wor…")
+  // Background with no task line: the background's own text, without its heading.
+  expect(labelOf('/x/app', 'Background (from the session that started this one):\nFix the band')).toBe('app · Fix the band')
 })
 
 test('a long prompt is cut at 24 cells, a Thai one by its cells and never between a letter and its marks', () => {

@@ -66,6 +66,7 @@ export const saneEntry = (value: unknown): FleetEntry | null => {
     ttl: numberOrNull(held.ttl),
     isWorking: held.isWorking === true,
     ended: numberOrNull(held.ended),
+    hostId: stringOrNull(held.hostId),
   }
 }
 
@@ -117,10 +118,25 @@ export const clipCells = (text: string, cells: number) => {
   return `${kept}…`
 }
 
+// A session another one started opens on the background it was handed, the
+// same words for every such session: its task, below, is what names it.
+const HANDED = /^\s*Background \(from the session that started this one\):[ \t]*\r?\n?/
+const TASK_LINE = /\r?\n\s*Task:[ \t]*\r?\n/
+
+const handedTask = (prompt: string) => {
+  if (!HANDED.test(prompt)) {
+    return prompt
+  }
+
+  const parts = prompt.split(TASK_LINE)
+
+  return parts.length > 1 ? parts.slice(1).join('\n') : prompt.replace(HANDED, '')
+}
+
 // What a prompt says once the wrapping the harness adds is taken off: tagged
 // blocks (a system reminder and the like) and leading [bracketed] notes.
 const spoken = (prompt: string) => {
-  let text = prompt.replace(/<([A-Za-z][\w-]*)[^>]*>[\s\S]*?<\/\1>/g, ' ').replace(/<[^>]+>/g, ' ')
+  let text = handedTask(prompt).replace(/<([A-Za-z][\w-]*)[^>]*>[\s\S]*?<\/\1>/g, ' ').replace(/<[^>]+>/g, ' ')
 
   for (let before = ''; before !== text; ) {
     before = text
