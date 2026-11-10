@@ -115,7 +115,7 @@ test('help sets out the words by what they do, a line each; an unknown word poin
   // The six words of every day first, then the settings, then the checks.
   expect(lines.slice(0, 3)).toEqual([
     '/tokens words:',
-    '  main: (nothing) for the usage pane, style for its buttons, agents, context, list, help',
+    '  main: (nothing) for the usage pane, style for its buttons, agents, context, next, list, help',
     'settings, most also a button in /tokens style:',
   ])
   expect(lines.slice(-2)).toEqual(['checks:', '  alerts test [week|cache|lapsed]'])
@@ -870,7 +870,9 @@ test('where the session cannot compact from a hook, Compact runs the person\'s /
   expect(toasts.filter(text => text.startsWith('Compact'))).toEqual([])
 })
 
-test('a Compact pressed while a turn runs says to wait, and does not ask the engine', async ($, on) => {
+// While a turn runs the band offers Compact after, which waits for the turn's
+// end: nothing asks the engine meanwhile.
+test('a full context while a turn runs offers Compact after, and a press waits for the turn to end', async ($, on) => {
   const toasts: string[] = []
   let asked = 0
 
@@ -894,9 +896,10 @@ test('a Compact pressed while a turn runs says to wait, and does not ask the eng
     ...BAND,
     props: { ...BAND.props, isWorking: true },
   })
-  await ui.press({ key: 'compact' })
+  expect(await ui.find({ type: 'Button', key: 'compact' })).toBeUndefined()
+  await ui.press({ key: 'compactAfter' })
 
-  expect(toasts.at(-1)).toBe('Claude is still working: press Compact again when the turn ends.')
+  expect(toasts.at(-1)).toBe('Compacting when this turn ends.')
   expect(asked).toBe(0)
 })
 

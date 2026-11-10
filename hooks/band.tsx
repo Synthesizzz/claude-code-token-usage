@@ -2,11 +2,11 @@
 // Compact button, and under them what the plugins beneath draw.
 
 import { atom, read } from 'claude-code'
-import type { MatchedHook } from 'claude-code'
-import type { Motion, RingProps } from '../types'
+import type { EngineInterface, MatchedHook } from 'claude-code'
+import type { Motion, RingProps, Snapshot, Style } from '../types'
 import { isCrowded } from './alerts'
 import { EMPTY, budgetShare, isPlanOf, today, usd } from './cost'
-import { cacheHints, cachePhase, cacheWord, hasLapsedActions, learnedTtl } from './cache'
+import { cacheHints, cachePhase, cacheRates, cacheWord, learnedTtl } from './cache'
 import { contextNews, mixOf } from './context'
 import { shortTokens } from './cost'
 import { CRAB_ROWS, WORK_PX, crabSvg, daysOf, idleSvg, moodOf, napSvg, stageSvg, toneOf } from './crab'
@@ -35,12 +35,13 @@ import {
   turnsLeft,
 } from './usage'
 import { note, trouble } from './measure'
-import { act, cacheSaid as pricing, compact, heard, hush, startOver } from './notices'
+import { act, cacheSaid as pricing, heard, hush, pressMove } from './notices'
+import { nextMove, payback, quietSoon } from './next'
+import type { Seen } from './next'
 import { cellsOfSplit, splitSvg } from './advice'
 import type { ChoiceKey } from './advice'
 import {
   BUDGET,
-  COMPACT,
   CONTEXT_PANE,
   CRAB_MIN_COLUMNS,
   CRAB_MIN_ROWS,
@@ -49,7 +50,6 @@ import {
   RESET_MS,
   SLEEP_MS,
   SOON_TURNS,
-  freshLabel,
   saneBreakdown,
   scope,
   shown,
@@ -59,8 +59,7 @@ import {
 // The hover groups that open a hint at the band's top: a pointer on the
 // thing lights its group, which reveals the hint.
 const HINT = 'hint-'
-const HINT_FRESH = `${HINT}fresh`
-const HINT_COMPACT = `${HINT}compact`
+const HINT_MOVE = `${HINT}move`
 const HINT_CACHE = `${HINT}cache`
 const HINT_CONTEXT = `${HINT}context`
 
@@ -101,6 +100,9 @@ const breakdown = atom({ plugin: 'token-usage', key: 'breakdown' } as const, nul
 // The model of the last main-thread step: what a step's re-read is priced at.
 const cacheModel = atom({ plugin: 'token-usage', key: 'cacheModel' } as const, null)
 
+// The main thread's steps per turn, the last few: what a compaction pays back in.
+const turnSteps = atom({ plugin: 'token-usage', key: 'turnSteps' } as const, [])
+
 // The bar of what fills the context, in cells: the terminal's after CTX, the
 // desktop's under the ring.
 const TERMINAL_CELLS = 10
@@ -115,6 +117,46 @@ const MIX_WORD = ' context'
 
 type DrawBandHook = MatchedHook<'ui.render', { component: 'AbovePrompt' }>
 
+// The cache as the band counts it, and the one way on that fits: from the
+// context, the cache, the hour and this session's turns. The band draws it;
+// `/tokens next` says it with its figures.
+export async function weighMove($: EngineInterface, usage: Snapshot, at: number, style: Style, isWorking: boolean) {
+  // A context that fills within a few turns gets its way out as the primary.
+  const toGo = turnsLeft(await read($, growth))
+  const isSoon = toGo !== null && toGo <= SOON_TURNS
+  // While no turn runs, the cache counts down the pause since the last.
+  const paused = isWorking ? null : await read($, idleSince)
+  const ttl = learnedTtl(await read($, pauses)).ttl
+  // A test of the lapse shows it for a minute, for the context as it is.
+  const isTestLapse = !isWorking && (await read($, cacheTest)) > at
+  // A resumed session the engine called lapsed is lapsed, where the cache's
+  // time is not learned yet.
+  const cachePart =
+    isTestLapse || (paused?.lapsed === true && ttl === null)
+      ? { phase: 'gone' as const, left: 0 }
+      : paused === null
+        ? null
+        : cachePhase(at - paused.at, ttl)
+  const idleTokens = paused?.tokens ?? (isTestLapse ? usage.tokens : null)
+  // In a pause, the context it began with is what the next turn reads.
+  const tokens = idleTokens ?? usage.tokens
+  const steps = await read($, turnSteps)
+  const model = await read($, cacheModel)
+  const seen: Seen = {
+    tokens,
+    percent: usage.percent,
+    weight: style.weight,
+    isWorking,
+    cache: cachePart,
+    quietSoon: quietSoon(style.quiet, at),
+    isSoon,
+    handoff: style.handoff,
+    payback: payback(tokens, steps, cacheRates(model, ttl).read),
+  }
+
+  return { move: nextMove(seen), seen, steps, model, paused, ttl, cachePart, idleTokens }
+}
+
 export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<DrawBandHook>[1], next: Parameters<DrawBandHook>[2]) {
     const usage = await read($, snapshot)
 
@@ -126,48 +168,18 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
     const { percent } = usage
     const at = Math.max(usage.at, await read($, now))
     const style = await styleOf($, scope.base)
-    // A context this full gets a way out beside it: one press compacts. One
-    // that fills within a few turns gets it sooner, as the primary.
-    const toGo = turnsLeft(await read($, growth))
-    const isSoon = toGo !== null && toGo <= SOON_TURNS
-    // While no turn runs, the cache counts down the pause since the last.
-    const paused = e.props.isWorking ? null : await read($, idleSince)
-    const ttl = learnedTtl(await read($, pauses)).ttl
-    // A test of the lapse shows it for a minute, for the context as it is.
-    const isTestLapse = !e.props.isWorking && (await read($, cacheTest)) > at
-    // A resumed session the engine called lapsed is lapsed, where the cache's
-    // time is not learned yet.
-    const cachePart =
-      isTestLapse || (paused?.lapsed === true && ttl === null)
-        ? { phase: 'gone' as const, left: 0 }
-        : paused === null
-          ? null
-          : cachePhase(at - paused.at, ttl)
-    const idleTokens = paused?.tokens ?? (isTestLapse ? usage.tokens : null)
-    // A large context whose cache has lapsed: the next turn re-reads all of
-    // it, so the band offers to start fresh or compact first.
-    const isLapsed = hasLapsedActions(cachePart, idleTokens)
-    const hasCompact = isCrowded(usage.tokens, percent, style.weight) || isSoon || isLapsed
-    // Start fresh, or Hand off where the person set a message for it.
-    const startLabel = freshLabel(style.handoff)
-    const compactPress = (
-      <Button
-        key="compact"
-        label={COMPACT}
-        {...(isSoon ? { variant: 'primary' as const } : {})}
-        {...(isLapsed ? { hover: { scope: HINT_COMPACT } } : {})}
-        onPress={() => compact($, e.props.isWorking)}
-      />
-    )
-    const press = !hasCompact ? null : isLapsed ? (
-      <Box gap={1}>
-        <Button key="fresh" label={startLabel} hover={{ scope: HINT_FRESH }} onPress={() => void startOver($, style.handoff, e.props.isWorking)} />
-        {compactPress}
-      </Box>
-    ) : (
-      compactPress
-    )
-    const action = !hasCompact ? null : isLapsed ? `${startLabel}    ${COMPACT}` : COMPACT
+    const { move, paused, ttl, cachePart, idleTokens } = await weighMove($, usage, at, style, e.props.isWorking)
+    const press =
+      move === null ? null : (
+        <Button
+          key={move.key}
+          label={move.label}
+          {...(move.isPrimary ? { variant: 'primary' as const } : {})}
+          hover={{ scope: HINT_MOVE }}
+          onPress={() => void pressMove($, move.key, style.handoff, e.props.isWorking)}
+        />
+      )
+    const action = move?.label ?? null
     // In quiet hours the band says until when; the crab sleeps through them.
     const quiet =
       style.quiet !== null && isQuiet(style.quiet, at)
@@ -402,12 +414,22 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
         ...(isStaying
           ? (talk?.choices ?? []).flatMap(({ key, label, hint }) => (hint === undefined ? [] : [{ scope: `${HINT}choice-${key}`, label, hint }]))
           : []),
-        ...(isLapsed
-          ? [
-              { scope: HINT_FRESH, label: startLabel, hint: hints.fresh },
-              { scope: HINT_COMPACT, label: COMPACT, hint: hints.compactLapsed },
-            ]
-          : []),
+        // Why the one move: a hand-off says the message it sends, and after a
+        // lapse a compaction says what it costs then.
+        ...(move === null
+          ? []
+          : [
+              {
+                scope: HINT_MOVE,
+                label: move.label,
+                hint:
+                  move.key === 'fresh'
+                    ? `${move.why} ${hints.fresh}`
+                    : move.key === 'compact' && cachePart?.phase === 'gone'
+                      ? `${move.why} ${hints.compactLapsed}`
+                      : move.reason,
+              },
+            ]),
         ...(cachePart === null
           ? []
           : [

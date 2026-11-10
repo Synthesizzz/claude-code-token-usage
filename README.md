@@ -32,7 +32,7 @@ On the desktop the pane is a dashboard: the context and the windows as rings ins
 
 ## Commands
 
-Six words for every day:
+Seven words for every day:
 
 | Type | Result |
 | --- | --- |
@@ -40,8 +40,9 @@ Six words for every day:
 | `/tokens style` | Opens a pane of buttons for most settings below. At its top the band is drawn in the look in force, from your own figures; the pointer resting on a layout or a palette shows the band in it, under the buttons, before you press. Palettes go by kind: colour, grey, colour-blind safe. Then the parts shown, the daily, weekly and monthly budgets (with an API key; a subscription bills no dollars, so its pane has none), alerts, the notification outside the app (popup, privacy, quiet hours), and export and old files |
 | `/tokens agents` | Opens a pane of the subagents of the turn, a card each with a crab dressed for its job |
 | `/tokens context` | Opens a pane of what fills the context, as `/context` breaks it down: the grid, its rows, the MCP servers, memory files, skills and agents |
+| `/tokens next` | Says the band's next move and why, with the figures it weighed: the context, what a step reads, what a compaction pays back in, the cache and quiet hours (see [The next move](#the-next-move)) |
 | `/tokens list` | Says what is chosen, how wide the band is, and what it left out |
-| `/tokens help` | Lists every word: these six, then the settings a line for each kind (look, parts, alerts, budgets, hand off, context, data), then the checks |
+| `/tokens help` | Lists every word: these seven, then the settings a line for each kind (look, parts, alerts, budgets, hand off, context, data), then the checks |
 
 ### Settings
 
@@ -66,7 +67,7 @@ Most have a button in `/tokens style` too; colour levels, the background, other 
 | `/tokens budget month 200` · `budget month off` | Sets a budget in dollars a calendar month, or drops it |
 | `/tokens budget project here 5` · `budget project shop off` | Sets a budget in dollars a day for a project (`here` is the folder the session runs in), or drops it |
 | `/tokens weight 200k 400k` · `weight off` | Sets the context sizes that turn it yellow and red (200k and 400k to start with; `250000 500000` and `1.5m 3m` work too, the first under the second), or colours it by its share of the window, at 60% and 85%. They also set when Compact and the context's alert come (at the second size) and when a heavy turn says to compact after (at the first). `weight` alone says what is set, `weight on` puts the sizes back |
-| `/tokens handoff Hand off now` · `handoff off` | Sets the message the Start fresh buttons send as your own, where they would clear the conversation; they say **Hand off** then. Off to start with: Start fresh runs `/clear`, as ever (see [Hand off](#hand-off-instead-of-start-fresh)) |
+| `/tokens handoff Hand off now` · `handoff off` | Sets the message Hand off and Park send as your own, and the message the crab's Start fresh sends in place of `/clear`. Off to start with: the band's move is then Compact where it would hand off or park (see [Hand off](#hand-off-instead-of-start-fresh)) |
 | `/tokens export` | Writes the last 31 days of every session to `~/.claude/token-usage/export-<day>.csv` (a row a day: dollars, tokens) and `.json` (with tokens by project and by model) |
 | `/tokens tidy` · `tidy now` | Says how many session files are over 31 days old and no longer read; `now` deletes them |
 | `/tokens reset` | Back to the defaults |
@@ -91,7 +92,7 @@ Each is raised once per window:
 - a window passes 85%, or reaches its limit
 - a window will be full before it resets, at the pace of the last half hour
 - a window that was near its limit resets
-- the context passes 400k, or 80% of a window smaller than that, whichever comes first (the second size of `/tokens weight`; with the weight off, 80%); said by its size, `Context at 412k (41%)`. The band then shows a `Compact` button. A context that falls back under it (a compaction) is news again the next time it passes
+- the context passes 400k, or 80% of a window smaller than that, whichever comes first (the second size of `/tokens weight`; with the weight off, 80%); said by its size, `Context at 412k (41%)`. The band's next move is then Compact or Hand off (see [The next move](#the-next-move)). A context that falls back under it (a compaction) is news again the next time it passes
 - a turn, while it runs, passes five times a usual turn (the median of the last twenty main turns, every session's, so a new session goes by the ones before it), and never under 300k tokens; with fewer than three turns to go by, at 500k. A subagent's tokens count toward the turn it runs in. Said once a turn, with why it is heavy, a bar of where its tokens went (the context re-read, read anew, output, subagents), and buttons for what fits, the best first, pressed with 1, 2, 3 even from an empty prompt: near the 5-hour limit, **Stop now**; subagents doing most of it, **Keep going** or **See agents**; a context past 200k, or 70% of its window (the first size of `/tokens weight`), **Compact after** (the turn finishes, then it compacts); a lapsed cache, **Keep going**, **Compact after** or **Warn at 2×** (twice as high for the session), and no stop: the lapse was paid at the turn's first step, so stopping gets none of it back. **Stop now** ends the turn at once, as Esc does, and asks what next: **Compact** where the context is half full or more, **Start fresh** (`/clear`, or **Hand off** where one is set) where it is light, or **Continue**, which sends "Continue where you stopped." as your own message.
 - a window passes 60%, if you switch that on
 - the day's cost passes 80% of your budget, or all of it, if you set one
@@ -225,11 +226,27 @@ Claude Code caches the conversation's prefix: a turn that comes soon after the l
 - The cache lasts past every pause that kept it and short of the shortest that lapsed it past those. The cache lives 5 minutes or an hour, so the learned time is the one of those the range holds (kept through 24m, lapsed after 4h31m: an hour), the shorter where it holds both, since an early warning beats a late one. A range that holds neither keeps its own end. With no lapse yet, a pause kept past 5 minutes already says an hour; one kept for less says nothing until a lapse is seen. The last fifty pauses are kept for every session.
 - While no turn runs, the band counts the pause down: `cache 4m` dim, `cache lapses in 1m30s` in the warning colour for the last two minutes (or the last 40% of a short cache), and `cache lapsed · next turn re-reads 148k` once it has. It goes with the cost when the band is narrow; quiet hours come first.
 - Two minutes before the cache lapses, once a pause, the crab says so in the app and offers what to do, its buttons standing until the lapse: **Compact now** compacts while the cache still holds, so the compaction reads the context cheaply and the next turn re-reads only the summary; **Keep warm** reads the cache once with a fork of the conversation's last request (`$.model.fork`): no turn, nothing in the conversation, and the cache's time starts over from the ping. A toast says how it went: `Cache kept warm: read 148k (about 15k at full price).`, or that the cache had already lapsed (the ping read nothing), or why the ping failed, or that there is nothing to keep warm (a turn runs, or none has ended yet). The first ping after a turn writes a block of its own besides its read, once, and the toast says so: `Cache kept warm: read 44.4k (about 2.2k at full price), wrote 32.4k once (about 64.7k).` (seen live on Sonnet 5.5 with a 77k context); the next ping reads that block too; a busy API (429 or 5xx) is tried once more half a minute on while the cache still has the time. A pause begun at a ping never teaches how long the cache lasts, and one that lapses short of the learned time says the ping did not hold the cache: from then on Keep warm sends a short turn instead (`Keeping the prompt cache warm: reply with only "ok".`, shown as your own message), and a toast says so once; **Let it lapse** sends the crab away. A context of 60k tokens or more has Compact now first (`Leaving? Compact now while it's cached: the next turn re-reads a summary, not 84.0k.`), a smaller one Keep warm. With the crab off, a toast says it, with no buttons. It stays in the app, since only someone at the app can act in time, and it says nothing of a cache shorter than two minutes, of a pause a turn has ended, or with alerts off.
-- Once the cache has lapsed, a context of 50k tokens or more gets **Start fresh** (`/clear`, or **Hand off**) and **Compact** in the band beside `cache lapsed · next turn re-reads 148k`: start fresh for something new and re-read nothing, or compact before carrying on, so the turns after it re-read less.
+- Once the cache has lapsed, a context of 50k tokens or more gets one way out in the band beside `cache lapsed · next turn re-reads 148k`: **Hand off** where a hand-off message is set, else **Compact**, so the turns after it re-read less. The band no longer offers `/clear` on its own.
 - On the desktop, the pointer on any of these, or on the cache's word itself, opens a hint at the band's top: what it does and what it costs, the figures at the API's price in tokens at the full input price. A cache read costs a tenth of it, a twentieth on Opus 5.5 and Sonnet 5.5 and a fortieth on Fable 5.1 and Mythos 5.1, by the model of the last response; a write a quarter more for a five-minute cache and twice the price for an hour's, which is also the price where the time is not learned yet (a subscription's cache lasts an hour). On the cache's word it says why a big context costs: every step re-reads it, and a lapse writes it all again at twenty times a cached step on an hour's cache, forty on Opus 5.5 and Sonnet 5.5, eighty on Fable 5.1 and Mythos 5.1. The hint opens above the row so nothing under the pointer moves. A terminal has no pointer: with eight rows and forty columns, each choice's hint is written under the buttons, numbered as its hotkey.
 - A resumed session (`--resume`, or one forked) says how long since its last reply, how much it held and what re-writing that costs: the band counts the pause from that reply before any turn runs, so `cache lapsed · next turn re-reads 148k` and its ways out stand from the start, and the hints add the engine's dollars (`about 296k at full price, $4.01 at API price`). Where the cache's time is not learned yet, the engine's word that it lapsed stands.
 - Keep warm and the resumed session's countdown come from [cache-tax](https://github.com/karanb192/cache-tax) (MIT, Karan Bansal), rewritten here. Do not install both: each would ping and warn on its own.
 - The pane says what was learned under the share read from the cache (`cache lapses after ~5m idle · learned from 9 pauses`).
+
+## The next move
+
+The band holds at most one button beside the context: the move that fits now, or none while carrying on is best. It weighs the context, the cache, the hour and this session's own turns, gravest first:
+
+1. A turn runs: a full context gets **Compact after** (the turn finishes, then it compacts); else nothing until it ends.
+2. The cache has lapsed and the context is 50k or more: **Hand off**, or **Compact** with no hand-off message.
+3. The context fills within three turns at its pace: **Compact**, as the primary button.
+4. The context is under the warning size (200k, or 70% of a smaller window): nothing.
+5. Quiet hours begin within 30 minutes, or the cache lapses within two: **Park**, which sends your hand-off message and compacts once its turn ends, so the next turn reads a summary; **Compact** with no hand-off message.
+6. The context is full (400k, or 80% of a smaller window): **Hand off**, or **Compact**.
+7. A compaction pays back within three turns: **Compact**.
+
+On the desktop the pointer on the button opens why, at the band's top. `/tokens next` says the same with its figures, on any surface.
+
+What a compaction pays back in: what each turn saves reading a summary in place of the context, against its price. Both come from 164 compactions measured in transcripts: a compaction leaves about 130k (the setup and the summary), and costs about 200k tokens at the full input price, most of it the next step writing the new context to the cache. A turn takes the median of this session's last five turns' steps, or 3 until it has one. At 400k and 3 steps a turn a compaction pays back in about 5 turns, so the size alone (step 6) is what brings it there; step 7 comes in sessions whose turns are long.
 
 ## Hand off instead of Start fresh
 
@@ -239,11 +256,11 @@ Start fresh runs `/clear`, which drops the conversation. If you would rather car
 /tokens handoff Hand off now
 ```
 
-Everywhere the band or the crab offers Start fresh (the lapsed cache's buttons, and what next after **Stop now**), the button then says **Hand off**, and a press sends your text as your own message, the way **Continue** sends its words. The mod sends plain text through `$.prompt.submit` with `asUser`: the model reads it bare, as if you had typed it, and the transcript still names the plugin. `@file` mentions and pasted images in it are not expanded, so write the message in plain words.
+The band's next move can then be **Hand off** and **Park** (see [The next move](#the-next-move)), and where the crab offers Start fresh (what next after **Stop now**) the button says **Hand off**. A press sends your text as your own message, the way **Continue** sends its words. The mod sends plain text through `$.prompt.submit` with `asUser`: the model reads it bare, as if you had typed it, and the transcript still names the plugin. `@file` mentions and pasted images in it are not expanded, so write the message in plain words.
 
 - A press while a turn runs does nothing but say `Claude is still working: press Hand off again when the turn ends.`, as Compact does; the crab's notice stays for the second press.
 - The hint on the lapsed band's button says what it sends: `Sends your hand-off message as your own turn: "Hand off now". The conversation is not cleared.` A hand-off is a turn of its own, so on a lapsed cache it writes the cache once.
-- `/tokens handoff` alone says what is set. `/tokens handoff off` puts Start fresh back, and so does `/tokens reset`. `/tokens list` names it.
+- `/tokens handoff` alone says what is set. `/tokens handoff off` puts Compact back in the band and Start fresh in the crab's choices, and so does `/tokens reset`. `/tokens list` names it.
 - It is kept with the style across sessions, as typed: its case and the spaces inside it stand.
 
 ## The desktop band and its width

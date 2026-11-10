@@ -121,10 +121,12 @@ test('a narrowing desktop band gives up the price per step before the context wo
   expect(isStepGone).toBe(true)
 })
 
-test('a context past 400k on a 1M window offers Compact; under it, none', async ($, on) => {
+// Under 400k the one move is Compact only where it pays back within 3 turns:
+// at 250k, with no turns of its own and no model known, it takes 6.
+test('a context past 400k on a 1M window offers Compact; well under it, none', async ($, on) => {
   world(on)
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
-  await $.session.measure(sized(390_000))
+  await $.session.measure(sized(250_000))
 
   for (const surface of ['desktop', 'terminal'] as const) {
     const ui = await $.ui.mount({ plugin: PLUGIN, surface, ...band(160) })

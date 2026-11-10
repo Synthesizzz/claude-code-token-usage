@@ -2,6 +2,14 @@
 
 What each version of token-usage added or changed, newest first. Versions before 0.5.2 came before the repository, and 0.10 to 0.12 have no commit of their own: their work is in 0.13.0.
 
+## 0.50.0
+
+- One next move in the band in place of the Compact button and the lapsed cache's Start fresh and Compact pair: **Compact**, **Hand off**, **Park**, **Compact after** while a turn runs, or none while carrying on is best. It weighs the context, the cache, quiet hours and this session's own turns, and the pointer on it says why. See The next move in the README for the rule.
+- **Park**, before quiet hours or a lapse: sends your hand-off message, then compacts once its turn ends. With no hand-off message set, Park and Hand off are Compact: the band no longer offers `/clear`.
+- `/tokens next` says the move and the figures it weighed: the context, what a step reads, what a compaction pays back in (from this session's steps per turn, or 3), the cache and quiet hours.
+- A compaction is priced at about 200k tokens at the full input price and leaves about 130k: medians of 164 compactions measured from transcripts.
+- The main thread's steps per turn are counted, the last five kept for the session.
+
 ## 0.49.1
 
 - The narrowest desktop band says the context's size again, `374k`, where 0.49.0's last commit had it say the share (`37%`) when even the size did not fit. At 8 columns the band is the figure and the size alone, and it spills by a little: no window is that narrow.

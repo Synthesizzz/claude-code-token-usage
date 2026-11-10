@@ -248,6 +248,9 @@ declare module 'claude-code' {
       sessionTokens: number
       // The context fill at the end of each turn of this session.
       growth: number[]
+      // The main thread's steps in the running turn, and in the last turns.
+      stepsNow: number
+      turnSteps: number[]
     }
   }
 }

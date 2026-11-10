@@ -68,13 +68,13 @@ const OUTSIDE = ['popup', 'privacy', 'quiet'] as const
 // what they do, a line each, then the checks.
 const HELP = [
   '/tokens words:',
-  '  main: (nothing) for the usage pane, style for its buttons, agents, context, list, help',
+  '  main: (nothing) for the usage pane, style for its buttons, agents, context, next, list, help',
   'settings, most also a button in /tokens style:',
   `  look: a preset (${Object.keys(PRESETS).join(', ')}), layout <${LAYOUTS.join('|')}>, palette <${PALETTE_NAMES.join('|')}>, color <${Object.keys(LEVELS).join('|')}> <#hex>, color background <#hex|off>, labels <${LABEL_SETS.join('|')}>`,
   `  parts: show|hide <${PARTS.join('|')}>`,
   `  alerts: alerts <on|off|${NOTIFY.join('|')}>, alerts 60 <on|off>, alerts popup <on|off>, alerts privacy <on|off>, alerts quiet <from-to|off>`,
   '  budgets: budget <dollars a day|off>, budget week <dollars|off>, budget month <dollars|off>, budget project <name|here> <dollars|off>',
-  '  hand off: handoff <text|off>, the message the Start fresh buttons send as your own, instead of clearing',
+  '  hand off: handoff <text|off>, the message Hand off and Park send as your own; unset, the band compacts instead',
   '  context: weight <warn> <full>|off, the sizes that turn the context yellow and red (200k 400k); off colours it by its share of the window',
   '  data: export, tidy [now], reset',
   'checks:',
@@ -304,6 +304,7 @@ export type Outcome =
   | { style: Style; text: string }
   | { reset: true; text: string }
   | { open: 'usage' | 'style' | 'context' | 'agents' }
+  | { next: true }
   | { text: string; isList?: true; isTest?: true; isWeek?: true; isCache?: true; isLapsed?: true }
   | { export: true }
   | { tidy: boolean }
@@ -331,6 +332,11 @@ export const apply = (style: Style, args: string): Outcome => {
 
   if (word === 'agents') {
     return { open: 'agents' }
+  }
+
+  // The band's one next move, said with the figures it was weighed on.
+  if (word === 'next') {
+    return { next: true }
   }
 
   if (word === 'help') {

@@ -13,6 +13,7 @@ import { isQuiet } from './usage'
 import { AGENTS_PANE, CACHE_TICK_MS, CHOICE_MS, FORK_SHORT_KEY, HANDOFF, LEAVE_MS, NOTIFY_MS, SAY_MS, STYLE_KEY, SWITCH_FILE, scope, styleOf, tick } from './state'
 import { stoppedAdvice } from './advice'
 import type { ChoiceKey } from './advice'
+import type { MoveKey } from './next'
 
 const now = atom({ plugin: 'token-usage', key: 'now' } as const, 0)
 
@@ -441,6 +442,59 @@ export async function startOver($: EngineInterface, handoff: string, isWorking: 
   await $.prompt.submit({ text: handoff, asUser: true })
 }
 
+// Park, before the person leaves: the hand-off message goes as their own, and
+// once its turn ends the context compacts, so the next turn reads a summary.
+// The compaction is asked for first, so the turn's end finds it asked; a
+// message that could not go takes the ask back. With no message, it compacts.
+export async function park($: EngineInterface, handoff: string, isWorking: boolean) {
+  if (isWorking) {
+    $.ui.toast('Claude is still working: press Park again when the turn ends.')
+
+    return
+  }
+
+  if (handoff === '') {
+    $.clock.after(COMPACT_SOON_MS, () => void compact($, false))
+
+    return
+  }
+
+  await update($, compactAfter, () => true)
+
+  try {
+    await $.prompt.submit({ text: handoff, asUser: true })
+  } catch (error) {
+    await update($, compactAfter, () => false)
+    $.ui.toast(`Park did not send the hand-off: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+// The band's one next move, pressed. Unlike a crab's choice, nothing is
+// hushed: the band offers it, not a notice.
+export async function pressMove($: EngineInterface, key: MoveKey, handoff: string, isWorking: boolean) {
+  switch (key) {
+    case 'compact':
+      await compact($, isWorking)
+
+      return
+    case 'compactAfter':
+      await update($, compactAfter, () => true)
+      $.ui.toast('Compacting when this turn ends.')
+
+      return
+    case 'fresh':
+      await startOver($, handoff, isWorking)
+
+      return
+    case 'park':
+      await park($, handoff, isWorking)
+
+      return
+    default:
+      return
+  }
+}
+
 // One path for a typed word and a pressed button: the state redraws the band
 // now, the store keeps the choice for the next session.
 export async function choose($: EngineInterface, base: Style, args: string) {
@@ -524,6 +578,10 @@ export async function act($: EngineInterface, key: ChoiceKey, tokens: string, ha
       return
     case 'fresh':
       await startOver($, handoff, isWorking)
+
+      return
+    case 'park':
+      await park($, handoff, isWorking)
 
       return
     case 'continue':

@@ -7,7 +7,7 @@ import { shortTokens } from './cost'
 import { freshLabel } from './state'
 import { WEIGHT } from './usage'
 
-export type ChoiceKey = 'stop' | 'keep' | 'agents' | 'compactAfter' | 'raise' | 'compact' | 'fresh' | 'continue' | 'warm' | 'lapse'
+export type ChoiceKey = 'stop' | 'keep' | 'agents' | 'compactAfter' | 'raise' | 'compact' | 'fresh' | 'park' | 'continue' | 'warm' | 'lapse'
 
 // A hint says what the choice does and costs, while the pointer rests on it.
 export type Choice = { key: ChoiceKey; label: string; hint?: string }

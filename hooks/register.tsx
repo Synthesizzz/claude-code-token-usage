@@ -18,17 +18,19 @@ import {
   isPlanOf,
   sessionSummary,
 } from './cost'
-import { cacheRates, judgePause, keepPauses, learnedTtl, sanePauses } from './cache'
+import { cacheRates, cacheWord, judgePause, keepPauses, learnedTtl, sanePauses } from './cache'
 import { NO_PARTS, addStep, heavyAdvice, splitOf } from './advice'
 import type { TurnParts } from './advice'
 import { defaults, sane } from './style'
-import { drawBand } from './band'
+import { drawBand, weighMove } from './band'
 import { adopt, agentOf, countContext, exported, gather, keep, recount, tidy } from './ledger'
 import { compacted, measure, note, trouble } from './measure'
 import { SAMPLE, SAMPLE_WEEK, beginPause, bring, choose, compactIfAsked, endPause, forkFellShort, tell, testCache, testLapse } from './notices'
 import { drawAgentsPane, refreshCrew, watchCrew } from './pane-agents'
 import { drawContextPane } from './pane-context'
 import { joined, spent, stepped, used } from './crew'
+import { keepSteps, nextText } from './next'
+import { stepText } from './usage'
 import { drawStylePane } from './pane-style'
 import { drawUsagePane } from './pane-usage'
 import {
@@ -91,6 +93,12 @@ const sessionTokens = atom({ plugin: 'token-usage', key: 'sessionTokens' } as co
 
 // The context fill at the end of each turn, for its forecast; this many kept.
 const growth = atom({ plugin: 'token-usage', key: 'growth' } as const, [])
+
+// The main thread's steps in the running turn, and per turn of the last few:
+// what a compaction pays back in.
+const stepsNow = atom({ plugin: 'token-usage', key: 'stepsNow' } as const, 0)
+
+const turnSteps = atom({ plugin: 'token-usage', key: 'turnSteps' } as const, [])
 
 // The prompt cache: the pause it counts down, and the pauses it was judged
 // on, every session's (how long it lasts is the account's).
@@ -203,7 +211,7 @@ export const register: Register = (on, options) => {
       name: 'tokens',
       description: 'Show token usage in a pane, or change how the band looks',
       argumentHint:
-        '[help | style | agents | context | list | reset | <preset> | layout <name> | palette <name> | color <ok|warn|full> <#hex> | color background <#hex|off> | labels <name> | show|hide <part> | alerts <on|off|both|app|windows> | alerts popup|privacy on|off | alerts quiet <22-8|off> | budget <$|off> | budget week|month <$|off> | handoff <text|off> | export | tidy [now]]',
+        '[help | style | agents | context | next | list | reset | <preset> | layout <name> | palette <name> | color <ok|warn|full> <#hex> | color background <#hex|off> | labels <name> | show|hide <part> | alerts <on|off|both|app|windows> | alerts popup|privacy on|off | alerts quiet <22-8|off> | budget <$|off> | budget week|month <$|off> | handoff <text|off> | export | tidy [now]]',
     })
     await setUp($)
     // A countdown moves while nothing is measured: the clock redraws it.
@@ -346,6 +354,10 @@ export const register: Register = (on, options) => {
     // The stream beneath, forwarded as it comes; what it returns, at its end.
     const result = yield* next(e)
     const used = turnTokens(result?.usage)
+
+    if (e.agentId === undefined) {
+      await update($, stepsNow, () => e.index + 1)
+    }
 
     if (e.agentId === undefined && isModel(result?.usage)) {
       const model = result.usage.model
@@ -542,6 +554,15 @@ export const register: Register = (on, options) => {
       running = 0
       isHeavyTold = false
       parts = NO_PARTS
+
+      const stepCount = await read($, stepsNow)
+
+      await update($, stepsNow, () => 0)
+
+      if (stepCount > 0) {
+        await update($, turnSteps, held => keepSteps(held, stepCount))
+      }
+
       // A compaction asked for while it ran, now that it has ended.
       $.clock.after(COMPACT_AFTER_MS, () => void compactIfAsked($))
 
@@ -608,6 +629,26 @@ export const register: Register = (on, options) => {
 
     if ('tidy' in outcome) {
       return { text: await tidy($, outcome.tidy) }
+    }
+
+    if ('next' in outcome) {
+      const measured = await read($, snapshot)
+
+      if (measured === null) {
+        return { text: 'Next: nothing measured yet. Ask again after a reply.' }
+      }
+
+      const style = await styleOf($, base)
+      const weighed = await weighMove($, measured, Math.max(measured.at, await $.clock.now()), style, false)
+
+      return {
+        text: nextText(weighed.move, weighed.seen, {
+          perStep: stepText(weighed.seen.tokens, weighed.model),
+          steps: weighed.steps,
+          cache: weighed.cachePart === null ? null : cacheWord(weighed.cachePart, weighed.idleTokens),
+          quiet: style.quiet,
+        }),
+      }
     }
 
     if (!('open' in outcome)) {

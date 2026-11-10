@@ -274,15 +274,15 @@ test('the session learns the cache from its pauses, and the band counts down to 
   const gone = await words(lapsed)
 
   expect(gone.find(({ text }) => text.startsWith('cache '))?.text).toBe('cache lapsed · next turn re-reads 140k')
-  // The next turn would re-read all 140k: start fresh, or compact first.
-  expect(await lapsed.find({ type: 'Button', key: 'fresh' })).toBeDefined()
+  // The next turn would re-read all 140k: with no hand-off message set, the
+  // one way out is to compact first.
   expect(await lapsed.find({ type: 'Button', key: 'compact' })).toBeDefined()
+  expect(await lapsed.find({ type: 'Button', key: 'fresh' })).toBeUndefined()
 
-  // On the desktop the pointer on each opens what it does and costs.
+  // On the desktop the pointer on it opens what it does and costs.
   const desk = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND, requestId: 'b3' } as never)
 
-  expect((await desk.find({ type: 'Box', key: 'hint-fresh' }))?.props.display).toBe('none')
-  expect((await desk.find({ type: 'Box', key: 'hint-compact' }))?.props.display).toBe('none')
+  expect((await desk.find({ type: 'Box', key: 'hint-move' }))?.props.display).toBe('none')
   expect(await desk.find({ type: 'Text', text: 'The cache has lapsed' })).toBeDefined()
 })
 
@@ -594,11 +594,12 @@ const resumed = async ($: Engine, on: On, fields: Record<string, unknown>) => {
 
   const band = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND })
   const said = (await words(band)).map(({ text }) => text)
-  const fresh = await band.find({ type: 'Button', key: 'fresh' })
+  // With no hand-off message set, the way out of a lapsed cache is Compact.
+  const wayOut = await band.find({ type: 'Button', key: 'compact' })
 
   await band.unmount()
 
-  return { said, hasFresh: fresh !== undefined }
+  return { said, hasFresh: wayOut !== undefined }
 }
 
 test("a session resumed two hours on says its cache has lapsed, with what re-writing it costs, before any turn", async ($, on) => {
@@ -717,8 +718,8 @@ test('alerts test cache brings the warning now, and alerts test lapsed shows the
   const lapsed = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND, requestId: 'b4' } as never)
 
   expect((await words(lapsed)).find(({ text }) => text.startsWith('cache '))?.text).toBe('cache lapsed · next turn re-reads 140k')
-  expect(await lapsed.find({ type: 'Button', key: 'fresh' })).toBeDefined()
-  expect((await lapsed.find({ type: 'Box', key: 'hint-fresh' }))?.props.display).toBe('none')
+  expect(await lapsed.find({ type: 'Button', key: 'compact' })).toBeDefined()
+  expect((await lapsed.find({ type: 'Box', key: 'hint-move' }))?.props.display).toBe('none')
   await lapsed.unmount()
 
   // A minute on, the band is as it was.
@@ -726,7 +727,7 @@ test('alerts test cache brings the warning now, and alerts test lapsed shows the
 
   const after = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND, requestId: 'b5' } as never)
 
-  expect(await after.find({ type: 'Button', key: 'fresh' })).toBeUndefined()
+  expect(await after.find({ type: 'Button', key: 'compact' })).toBeUndefined()
 })
 
 // Start fresh, or Hand off where the person set a message for it.
@@ -772,7 +773,11 @@ test("with a handoff set, the lapsed band offers Hand off, and a press sends the
   const button = await band.find({ type: 'Button', key: 'fresh' })
 
   expect(button?.props.label).toBe('Hand off')
-  expect(await band.find({ type: 'Text', text: 'Sends your hand-off message as your own turn: "Hand off now". The conversation is not cleared.' })).toBeDefined()
+  expect(
+    (await band.findAll({ type: 'Text' })).some(({ text }) =>
+      text.endsWith('Sends your hand-off message as your own turn: "Hand off now". The conversation is not cleared.'),
+    ),
+  ).toBe(true)
 
   await band.press({ key: 'fresh' })
 
@@ -780,22 +785,33 @@ test("with a handoff set, the lapsed band offers Hand off, and a press sends the
   expect(cleared).toEqual([])
 })
 
-test('with no handoff set, the lapsed band still offers Start fresh, and a press runs /clear', async ($, on) => {
+// With no message to hand off with, the band compacts rather than clear the
+// conversation unasked.
+test('with no handoff set, the lapsed band offers Compact, and a press compacts without clearing', async ($, on) => {
+  let compactions = 0
+
   world(on)
+  on('session.compact', () => {
+    compactions += 1
+
+    return { skip: 'counted' }
+  })
 
   const { band, submitted, cleared } = await lapsedBand($, on, null)
 
-  expect((await band.find({ type: 'Button', key: 'fresh' }))?.props.label).toBe('Start fresh')
-  await band.press({ key: 'fresh' })
-  expect(cleared).toEqual(['clear'])
+  expect(await band.find({ type: 'Button', key: 'fresh' })).toBeUndefined()
+  expect((await band.find({ type: 'Button', key: 'compact' }))?.props.label).toBe('Compact')
+  await band.press({ key: 'compact' })
+  expect(compactions).toBe(1)
+  expect(cleared).toEqual([])
   expect(submitted).toEqual([])
 })
 
-test('handoff off puts Start fresh back on the lapsed band', async ($, on) => {
+test('handoff off puts Compact back on the lapsed band', async ($, on) => {
   world(on)
 
   const { band, submitted } = await lapsedBand($, on, 'off')
 
-  expect((await band.find({ type: 'Button', key: 'fresh' }))?.props.label).toBe('Start fresh')
+  expect((await band.find({ type: 'Button', key: 'compact' }))?.props.label).toBe('Compact')
   expect(submitted).toEqual([])
 })
