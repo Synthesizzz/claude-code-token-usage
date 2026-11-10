@@ -121,6 +121,21 @@ test('a narrowing desktop band gives up the price per step before the context wo
   expect(isStepGone).toBe(true)
 })
 
+test('where even the size does not fit, the narrowest desktop band says the share', async ($, on) => {
+  world(on)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.session.measure(sized(374_000))
+
+  const wide = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band(30) })
+
+  expect(await wide.find({ type: 'Text', text: /^374k$/ })).toBeDefined()
+
+  const narrowest = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band(8) })
+
+  expect(await narrowest.find({ type: 'Text', text: /^37%$/ })).toBeDefined()
+  expect(await narrowest.find({ type: 'Text', text: /^374k$/ })).toBeUndefined()
+})
+
 test('a context past 400k on a 1M window offers Compact; under it, none', async ($, on) => {
   world(on)
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })

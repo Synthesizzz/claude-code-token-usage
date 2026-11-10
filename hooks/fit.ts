@@ -43,7 +43,8 @@ export type Wish = {
   // null while the context is switched off. `figure` is the width in pixels
   // of what is drawn for it, where that is not the ring. `step` is what each
   // step reads again, drawn after the word; null where no model is known.
-  context: { used: string; word: string; step?: string | null; figure?: number } | null
+  // `share` is what the narrowest band says where `used` is too wide.
+  context: { used: string; word: string; step?: string | null; share?: string | null; figure?: number } | null
   // `brief` is the name the tight layout draws when the wished one is too wide.
   windows: readonly { name: string; brief: string; used: string; clock: string | null }[]
   usedWord: string
@@ -65,6 +66,9 @@ export type Fitted = {
   // What each step reads again, after the context word: the first to go.
   // Absent is not drawn.
   hasStep?: boolean
+  // The context said as its share, in the room the size does not fit: the
+  // last step of all.
+  isShare?: boolean
   // The words beside the figures: a window's name where its figure tells it
   // apart already, "left", "used".
   hasWords: boolean
@@ -181,7 +185,7 @@ export const widthOf = (wish: Wish, fitted: Fitted) => {
       : [
           row([
             figure(wish.context.figure ?? RING_PX),
-            bold(wish.context.used),
+            bold(fitted.isShare === true && wish.context.share != null ? wish.context.share : wish.context.used),
             ...(fitted.hasContextWord ? [plain(wish.context.word)] : []),
             ...(fitted.hasStep && wish.context.step != null ? [plain(wish.context.step)] : []),
           ]),
@@ -242,6 +246,8 @@ const steps = (wish: Wish): Fitted[] => {
       ...bare,
       windows: wish.windows.length - 1 - index,
     })),
+    // Where even the context alone is too wide, its share is shorter: 37% for 374k.
+    ...(wish.context?.share == null ? [] : [{ ...bare, windows: 0, isShare: true }]),
   ]
 }
 

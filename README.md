@@ -248,7 +248,7 @@ Everywhere the band or the crab offers Start fresh (the lapsed cache's buttons, 
 
 ## The desktop band and its width
 
-The desktop app tells a mod its width in character cells, not pixels, so the band sizes itself by estimate. When the window is too narrow it gives up, in order: the price per step, the cost, the word "context", the forecast, the words beside the figures; then it falls back to the `compact` layout; then names, countdowns, and the weekly window. The context is never dropped. `/tokens list` reports the width and what was left out.
+The desktop app tells a mod its width in character cells, not pixels, so the band sizes itself by estimate. When the window is too narrow it gives up, in order: the price per step, the cost, the word "context", the forecast, the words beside the figures; then it falls back to the `compact` layout; then names, countdowns, and the weekly window. The context is never dropped: narrower still, it says its share (`37%`) in place of its size. `/tokens list` reports the width and what was left out.
 
 In a window's last five minutes its figure breathes slowly; at the reset the old fill drains away. This, and the crab's movement, are switched off for a reader whose system asks for reduced motion.
 

@@ -5,7 +5,7 @@ What each version of token-usage added or changed, newest first. Versions before
 ## 0.49.0
 
 - The context is said and coloured by its size, the tokens each step reads again, in place of its share of the window: `374k`, yellow from 200k and red from 400k, or at 60% and 85% of a window smaller than that, whichever comes first. On a 1M window 374k was a green 37%. `/tokens weight <warn> <full>` sets the sizes (`200k 400k`, `250000 500000`), `weight off` colours it by its share as before, and `list` and `help` name it. A style kept before 0.49.0 gets 200k and 400k.
-- The desktop band adds what a step reads at the model's cache price, `374k context · 18.7k/step`, once a response has named its model; it is the first part a narrow band gives up. The share moves to the ring's alt text and to a hint on the size, `Context 374k of 1.0M (37%)`. A terminal says `374k`, held at five cells, one more than the percentage took.
+- The desktop band adds what a step reads at the model's cache price, `374k context · 18.7k/step`, once a response has named its model; it is the first part a narrow band gives up, and a band too narrow even for the size says the share (`37%`). The share moves to the ring's alt text and to a hint on the size, `Context 374k of 1.0M (37%)`. A terminal says `374k`, held at five cells, one more than the percentage took.
 - Compact and the context's alert come at 400k or 80% of the window, whichever comes first, where they came at 80% alone (800k on a 1M window). The alert says the size, `Context at 412k (41%)`, once a crossing. A heavy turn says to compact after from 200k, or 70% of the window.
 - The look in `/tokens style`, the usage pane's context dial and the context pane colour the context the same way.
 

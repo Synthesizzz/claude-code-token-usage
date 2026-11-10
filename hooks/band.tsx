@@ -303,6 +303,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
         context: hasContext
           ? {
               used: sized,
+              share: tokens === null || percent === null ? null : percentage(percent).trim(),
               word: wished.context,
               step: perStep === null ? null : `· ${perStep}`,
               figure: isAtWork ? WORK_PX.width : isAsleep || isIdle ? napped.width : RING_PX,
@@ -473,7 +474,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
                 <Box gap={1} alignItems="center">
                   {figure(context.drawn, context.width, context.height)}
                   <Text weight="semibold" {...(hasSizeHint ? { hover: { scope: HINT_CONTEXT, underline: true } } : {})}>
-                    {sized}
+                    {fitted.isShare === true ? percentage(percent).trim() : sized}
                   </Text>
                   {fitted.hasContextWord && <Text dimColor>{named.context}</Text>}
                   {fitted.hasStep && wish.context?.step != null && <Text dimColor>{wish.context.step}</Text>}

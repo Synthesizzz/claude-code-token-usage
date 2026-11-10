@@ -155,3 +155,15 @@ test("the stack's bars take the room a narrow pane leaves, and give up \"left\" 
   expect(narrow.bar).toBeGreaterThanOrEqual(56)
   expect(stackFor(20, windows, 'left')).toEqual({ bar: 56, hasWords: false })
 })
+
+test('the last step says the context as its share, and only where a share was given', () => {
+  const sized = { ...WISH, context: { used: '374k', word: 'context', share: '37%' } }
+  const last = fit(sized, 0)
+
+  expect(last).toMatchObject({ windows: 0, isShare: true })
+  expect(widthOf(sized, last)).toBeLessThan(widthOf(sized, { ...last, isShare: false }))
+  // A size that fits keeps the size.
+  expect(fit(sized, 400).isShare).toBeUndefined()
+  // No share to fall back on: the ladder ends as before.
+  expect(fit(WISH, 0).isShare).toBeUndefined()
+})
