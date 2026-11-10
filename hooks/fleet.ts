@@ -134,9 +134,10 @@ const handedTask = (prompt: string) => {
 }
 
 // What a prompt says once the wrapping the harness adds is taken off: tagged
-// blocks (a system reminder and the like) and leading [bracketed] notes.
+// blocks (a system reminder and the like) and leading [bracketed] notes. The
+// tags go first, since the app puts a reminder before a handed background.
 const spoken = (prompt: string) => {
-  let text = handedTask(prompt).replace(/<([A-Za-z][\w-]*)[^>]*>[\s\S]*?<\/\1>/g, ' ').replace(/<[^>]+>/g, ' ')
+  let text = handedTask(prompt.replace(/<([A-Za-z][\w-]*)[^>]*>[\s\S]*?<\/\1>/g, ' ').replace(/<[^>]+>/g, ' '))
 
   for (let before = ''; before !== text; ) {
     before = text

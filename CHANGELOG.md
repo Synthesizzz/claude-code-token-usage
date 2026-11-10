@@ -2,6 +2,10 @@
 
 What each version of token-usage added or changed, newest first. Versions before 0.5.2 came before the repository, and 0.10 to 0.12 have no commit of their own: their work is in 0.13.0.
 
+## 0.51.2
+
+- A started session is named by its task also when the app puts a reminder block before the background, which is how the desktop app opens every such session. 0.51.1 named it by the background's first words.
+
 ## 0.51.1
 
 - Each fleet file and each row of `fleet.json` carries `hostId`, the desktop app's own id for the session (`local_…`), so a program that knows a session by that id finds its row. It is `null` outside the desktop app and in a file written before 0.51.1.

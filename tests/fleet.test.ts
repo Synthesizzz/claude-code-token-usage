@@ -62,6 +62,10 @@ test('a session started from another is named by its task, not by the background
   ].join('\n')
 
   expect(labelOf('D:/work/hub', handed)).toBe("hub · Continue the unit's wor…")
+  // The app puts a reminder block before the background.
+  expect(labelOf('D:/work/hub', `<system-reminder>\nLinked sessions now\n</system-reminder>\n\n${handed}`)).toBe(
+    "hub · Continue the unit's wor…",
+  )
   // Background with no task line: the background's own text, without its heading.
   expect(labelOf('/x/app', 'Background (from the session that started this one):\nFix the band')).toBe('app · Fix the band')
 })
