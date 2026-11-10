@@ -9,8 +9,8 @@ const NOW = 1_800_000_000_000
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE
 const SITE = { scroll: { offset: 0, bodyRows: 10 }, view: {} }
-const reading = (fiveHour: number, sevenDay: number, context: number, usd: number) => ({
-  context: { window: 200000, tokens: context * 2000, percent: context },
+const reading = (fiveHour: number, sevenDay: number, context: number, usd: number, window = 200000) => ({
+  context: { window, tokens: (context * window) / 100, percent: context },
   rateLimits: [
     { kind: 'five_hour', percentUsed: fiveHour, resetsAt: new Date(NOW + 4 * HOUR + 20 * MINUTE).toISOString() },
     { kind: 'seven_day', percentUsed: sevenDay, resetsAt: new Date(NOW + 32 * HOUR).toISOString() },
@@ -19,7 +19,11 @@ const reading = (fiveHour: number, sevenDay: number, context: number, usd: numbe
   changed: ['context' as const, 'rateLimits' as const, 'cost' as const],
 })
 
-for (const scene of ['calm', 'near', 'calm thai', 'calm caps', 'near long'] as const) {
+// A model is known in every scene, so the price per step is drawn: the
+// widest the context gets. `heavy` is a 1M window at 374k, past the warning.
+const usage = { model: 'claude-opus-5-5', input_tokens: 100, output_tokens: 100, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }
+
+for (const scene of ['calm', 'near', 'calm thai', 'calm caps', 'near long', 'heavy'] as const) {
   test(`dump ${scene}`, { timeoutMs: 60000 }, async ($, on) => {
     const kept = new Map<string, unknown>()
     const clock = mock.clock(on, { now: NOW })
@@ -38,7 +42,21 @@ for (const scene of ['calm', 'near', 'calm thai', 'calm caps', 'near long'] as c
       return Text({ children: '' })
     })
 
-    if (scene.startsWith('calm')) {
+    on('turn.step', async function* (_, e) {
+      yield { kind: 'stop', stopReason: 'end_turn', usage } as never
+
+      return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage }
+    })
+
+    const stream = $.turn.step({ turnId: 't1', index: 0, model: usage.model, messageCount: 3 } as never)
+
+    while ((await stream.next()).done !== true) {
+      // Drained: the step's model is what the band prices a step by.
+    }
+
+    if (scene === 'heavy') {
+      await $.session.measure(reading(2, 27, 37.4, 20.08, 1_000_000))
+    } else if (scene.startsWith('calm')) {
       await $.session.measure(reading(2, 27, 51, 20.08))
     } else {
       await $.session.measure(reading(71, 64, 78, 20.08))

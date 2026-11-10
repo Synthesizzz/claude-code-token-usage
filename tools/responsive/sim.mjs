@@ -56,6 +56,10 @@ const html = node => {
   return `<div style="${style}">${html(children)}</div>`
 }
 
+// The row of figures: the first child drawn, past the hints a pointer opens
+// (hidden until then) above it.
+const rowOf = root => (root.children ?? []).find(child => child?.props?.display !== 'none')
+
 const groups = new Map()
 for (const tree of trees) {
   const key = `${tree.scene} / ${tree.layout}`
@@ -68,7 +72,7 @@ const sections = [...groups]
       `<h2>${key}</h2>${list
         .map(
           tree =>
-            `<div class="case"><span class="cols">${tree.columns}</span><div class="band" data-key="${key}" data-columns="${tree.columns}" style="width:${cells(tree.columns)}">${html(tree.root.children[0])}</div><span class="flag"></span></div>`,
+            `<div class="case"><span class="cols">${tree.columns}</span><div class="band" data-key="${key}" data-columns="${tree.columns}" style="width:${cells(tree.columns)}">${html(rowOf(tree.root))}</div><span class="flag"></span></div>`,
         )
         .join('')}`,
   )
