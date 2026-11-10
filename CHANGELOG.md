@@ -2,6 +2,10 @@
 
 What each version of token-usage added or changed, newest first. Versions before 0.5.2 came before the repository, and 0.10 to 0.12 have no commit of their own: their work is in 0.13.0.
 
+## 0.49.1
+
+- The narrowest desktop band says the context's size again, `374k`, where 0.49.0's last commit had it say the share (`37%`) when even the size did not fit. At 8 columns the band is the figure and the size alone, and it spills by a little: no window is that narrow.
+
 ## 0.49.0
 
 - The context is said and coloured by its size, the tokens each step reads again, in place of its share of the window: `374k`, yellow from 200k and red from 400k, or at 60% and 85% of a window smaller than that, whichever comes first. On a 1M window 374k was a green 37%. `/tokens weight <warn> <full>` sets the sizes (`200k 400k`, `250000 500000`), `weight off` colours it by its share as before, and `list` and `help` name it. A style kept before 0.49.0 gets 200k and 400k.
