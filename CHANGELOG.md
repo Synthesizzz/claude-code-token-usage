@@ -2,6 +2,14 @@
 
 What each version of token-usage added or changed, newest first. Versions before 0.5.2 came before the repository, and 0.10 to 0.12 have no commit of their own: their work is in 0.13.0.
 
+## 0.51.0
+
+- The fleet: every open session at a glance. Each session keeps a small file of its own under `~/.claude/token-usage/fleet/` (when it last replied, its context, its model and how long its cache lasts) and reads everyone's.
+- `/tokens fleet` says a line a session: its name (the folder and how its first prompt began), working or how long its cache has left or since it lapsed, its context, and what waking it costs, the next turn's read at the full input price.
+- The band draws a dot for each open session once there are two or more, at most six and then `+n`: a ring at work, green while warm, yellow near the lapse, hollow once lapsed. On the desktop the pointer on a dot names the session and its figures. `/tokens hide fleet` hides them; a preset keeps them hidden. A narrow terminal gives the dots up first.
+- `~/.claude/token-usage/fleet.json` holds the open sessions for another program to read, rewritten at the end of each turn.
+- `/tokens tidy` also deletes fleet files quiet for over a week.
+
 ## 0.50.0
 
 - One next move in the band in place of the Compact button and the lapsed cache's Start fresh and Compact pair: **Compact**, **Hand off**, **Park**, **Compact after** while a turn runs, or none while carrying on is best. It weighs the context, the cache, quiet hours and this session's own turns, and the pointer on it says why. See The next move in the README for the rule.

@@ -43,9 +43,9 @@ export const PALETTE_GROUPS: readonly { heading: string; names: readonly Palette
   { heading: 'Colour-blind safe', names: ['safe', 'okabe'] },
 ]
 export const LABEL_SETS: readonly LabelSet[] = ['auto', 'short', 'long', 'caps', 'thai']
-export const PARTS: readonly Part[] = ['context', 'countdown', 'forecast', 'cost', 'alerts', 'crab', 'breakdown']
+export const PARTS: readonly Part[] = ['context', 'countdown', 'forecast', 'cost', 'alerts', 'crab', 'breakdown', 'fleet']
 // Not part of a look: a preset neither sets these nor is unmade by them.
-const APART: readonly Part[] = ['alerts', 'crab', 'breakdown']
+const APART: readonly Part[] = ['alerts', 'crab', 'breakdown', 'fleet']
 export const NOTIFY: readonly Notify[] = ['both', 'app', 'windows']
 // A preset is a look: where alerts go is not part of one.
 export const PRESETS: Record<string, Pick<Style, 'layout' | 'palette' | 'labels' | 'hidden'>> = {
@@ -68,7 +68,7 @@ const OUTSIDE = ['popup', 'privacy', 'quiet'] as const
 // what they do, a line each, then the checks.
 const HELP = [
   '/tokens words:',
-  '  main: (nothing) for the usage pane, style for its buttons, agents, context, next, list, help',
+  '  main: (nothing) for the usage pane, style for its buttons, agents, context, next, fleet, list, help',
   'settings, most also a button in /tokens style:',
   `  look: a preset (${Object.keys(PRESETS).join(', ')}), layout <${LAYOUTS.join('|')}>, palette <${PALETTE_NAMES.join('|')}>, color <${Object.keys(LEVELS).join('|')}> <#hex>, color background <#hex|off>, labels <${LABEL_SETS.join('|')}>`,
   `  parts: show|hide <${PARTS.join('|')}>`,
@@ -305,6 +305,7 @@ export type Outcome =
   | { reset: true; text: string }
   | { open: 'usage' | 'style' | 'context' | 'agents' }
   | { next: true }
+  | { fleet: true }
   | { text: string; isList?: true; isTest?: true; isWeek?: true; isCache?: true; isLapsed?: true }
   | { export: true }
   | { tidy: boolean }
@@ -337,6 +338,12 @@ export const apply = (style: Style, args: string): Outcome => {
   // The band's one next move, said with the figures it was weighed on.
   if (word === 'next') {
     return { next: true }
+  }
+
+  // `fleet` alone says every open session; `hide fleet` (or `fleet off`)
+  // hides their dots on the band.
+  if (word === 'fleet' && value === '') {
+    return { fleet: true }
   }
 
   if (word === 'help') {

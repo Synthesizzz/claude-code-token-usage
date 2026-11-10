@@ -62,6 +62,11 @@ export const SHARES_DIR = '.claude/token-usage/sessions'
 
 // A file untouched this long holds no day still kept.
 export const STALE_MS = 31 * 24 * 60 * 60_000
+// Each session's fleet file, beside the shares, and the summary of them all.
+export const FLEET_DIR = '.claude/token-usage/fleet'
+export const FLEET_JSON = '.claude/token-usage/fleet.json'
+// A fleet file this quiet is of a session long gone: /tokens tidy removes it.
+export const FLEET_STALE_MS = 7 * 24 * 60 * 60_000
 
 // The other sessions' files as last read, by name, with when each was
 // written: a file read once is read again only once it has changed.
@@ -255,6 +260,10 @@ export type Scope = {
   fitting: string | undefined
   // The folder the session runs in, by its last name.
   project: string
+  // The folder the session runs in, whole: its fleet file names it.
+  cwd: string
+  // This session's id as its fleet file names it.
+  fleetId: string
 }
 
-export const scope: Scope = { base: defaults({}), surface: undefined, fitting: undefined, project: '(no folder)' }
+export const scope: Scope = { base: defaults({}), surface: undefined, fitting: undefined, project: '(no folder)', cwd: '', fleetId: '' }

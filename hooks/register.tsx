@@ -30,6 +30,8 @@ import { drawAgentsPane, refreshCrew, watchCrew } from './pane-agents'
 import { drawContextPane } from './pane-context'
 import { joined, spent, stepped, used } from './crew'
 import { keepSteps, nextText } from './next'
+import { fleetRows, fleetText, labelOf } from './fleet'
+import { fleetFile, keepFleet, keepSummary, refreshFleet, turnEnded } from './fleet-io'
 import { stepText } from './usage'
 import { drawStylePane } from './pane-style'
 import { drawUsagePane } from './pane-usage'
@@ -177,6 +179,9 @@ async function setUp($: EngineInterface) {
   const begun = await $.clock.now()
 
   await update($, restSince, () => begun)
+  // The session joins the fleet, and sees who else is open.
+  await keepFleet($, scope.cwd, {})
+  await refreshFleet($)
 }
 
 export const register: Register = (on, options) => {
@@ -207,16 +212,17 @@ export const register: Register = (on, options) => {
     scope.surface = e.surface ?? undefined
     project = e.cwd.split(/[\\/]/).filter(part => part !== '').at(-1) ?? NO_PROJECT
     scope.project = project
+    scope.cwd = e.cwd
     await $.command.register({
       name: 'tokens',
       description: 'Show token usage in a pane, or change how the band looks',
       argumentHint:
-        '[help | style | agents | context | next | list | reset | <preset> | layout <name> | palette <name> | color <ok|warn|full> <#hex> | color background <#hex|off> | labels <name> | show|hide <part> | alerts <on|off|both|app|windows> | alerts popup|privacy on|off | alerts quiet <22-8|off> | budget <$|off> | budget week|month <$|off> | handoff <text|off> | export | tidy [now]]',
+        '[help | style | agents | context | next | fleet | list | reset | <preset> | layout <name> | palette <name> | color <ok|warn|full> <#hex> | color background <#hex|off> | labels <name> | show|hide <part> | alerts <on|off|both|app|windows> | alerts popup|privacy on|off | alerts quiet <22-8|off> | budget <$|off> | budget week|month <$|off> | handoff <text|off> | export | tidy [now]]',
     })
     await setUp($)
     // A countdown moves while nothing is measured: the clock redraws it.
     ticking?.cancel()
-    ticking = $.clock.every(TICK_MS, () => void tick($))
+    ticking = $.clock.every(TICK_MS, () => void tick($).then(() => refreshFleet($)))
 
     return next(e)
   }).catch(async ($, e, next) => {
@@ -286,6 +292,10 @@ export const register: Register = (on, options) => {
 
     if (e.agentId === undefined && e.trigger !== 'precompute' && done.skip === undefined) {
       await compacted($, done.tokensAfter)
+
+      if (typeof done.tokensAfter === 'number') {
+        await keepFleet($, scope.cwd, { tokens: done.tokensAfter })
+      }
     }
 
     return done
@@ -319,6 +329,10 @@ export const register: Register = (on, options) => {
     } catch {
       // Nothing to do: the session ends all the same.
     }
+
+    // The session leaves the fleet: its own file and the summary, nothing read.
+    await keepFleet($, scope.cwd, { ended: await $.clock.now(), isWorking: false, startedAt: null }, true)
+    await keepSummary($)
 
     const done = await next(e)
 
@@ -455,6 +469,16 @@ export const register: Register = (on, options) => {
   on('turn.start', async ($, e, next) => {
     if (e.agentId === undefined) {
       await update($, turnNow, () => e.turnId)
+
+      // A subagent's turn is not the session's: only the main loop's says
+      // the session works, and its first prompt names the session.
+      const startedAt = await $.clock.now()
+
+      await keepFleet($, scope.cwd, held => ({
+        isWorking: true,
+        startedAt,
+        ...(held.label === '' && e.text !== '' ? { label: labelOf(scope.cwd || held.cwd, e.text) } : {}),
+      }))
     }
 
     return next(e)
@@ -571,6 +595,10 @@ export const register: Register = (on, options) => {
 
       await beginPause($, base, endedAt, (await read($, snapshot))?.tokens ?? null)
       await update($, restSince, () => endedAt)
+      // The fleet hears the reply: the cache counts from here.
+      await turnEnded($, scope.cwd)
+      await refreshFleet($)
+      await keepSummary($)
 
       if (heft > 0) {
         // Read afresh: another session may have added its own meanwhile.
@@ -629,6 +657,13 @@ export const register: Register = (on, options) => {
 
     if ('tidy' in outcome) {
       return { text: await tidy($, outcome.tidy) }
+    }
+
+    if ('fleet' in outcome) {
+      const entries = await refreshFleet($)
+      const own = await fleetFile($)
+
+      return { text: fleetText(fleetRows(entries, await $.clock.now(), own?.id ?? '')) }
     }
 
     if ('next' in outcome) {

@@ -1,6 +1,6 @@
 {
   "name": "token-usage",
-  "version": "0.50.0",
+  "version": "0.51.0",
   "description": "A band above the prompt with context fill, the 5-hour and weekly windows, reset countdowns, a burn-rate forecast and cost. /tokens opens a detail pane; /tokens style, or words such as /tokens bars, change the layout, colours and labels.",
   "author": {
     "name": "Synthesizzz"

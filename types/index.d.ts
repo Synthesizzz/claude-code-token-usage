@@ -68,7 +68,7 @@ export type PaletteName =
 
 export type LabelSet = 'auto' | 'short' | 'long' | 'caps' | 'thai'
 
-export type Part = 'context' | 'countdown' | 'forecast' | 'cost' | 'alerts' | 'crab' | 'breakdown'
+export type Part = 'context' | 'countdown' | 'forecast' | 'cost' | 'alerts' | 'crab' | 'breakdown' | 'fleet'
 
 // Where a notice goes: the app's own toast, the system's notifications, or both.
 export type Notify = 'both' | 'app' | 'windows'
@@ -185,6 +185,24 @@ export type RingCell = { text: string; kind: 'on' | 'off' | 'label' }
 
 export type RingProps = { glyph: string; color: string; isWorking: boolean }
 
+// One session's own file in the fleet folder: what every session reads to
+// show all the open ones.
+export type FleetEntry = {
+  id: string
+  cwd: string
+  // The folder it runs in and how its first prompt began; '' until a prompt.
+  label: string
+  // Its last reply, where the cache's time counts from; when made, if none.
+  at: number
+  // When the turn it runs began; null while none runs.
+  startedAt: number | null
+  tokens: number | null
+  model: string | null
+  ttl: number | null
+  isWorking: boolean
+  ended: number | null
+}
+
 declare module 'claude-code' {
   interface PluginState {
     'token-usage': {
@@ -251,6 +269,8 @@ declare module 'claude-code' {
       // The main thread's steps in the running turn, and in the last turns.
       stepsNow: number
       turnSteps: number[]
+      // Every open session's file as last read, this session's own with them.
+      fleet: FleetEntry[]
     }
   }
 }

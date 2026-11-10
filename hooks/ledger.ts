@@ -29,6 +29,8 @@ import {
   NOTIFY_MS,
   SET_UPS_KEY,
   SHARES_DIR,
+  FLEET_DIR,
+  FLEET_STALE_MS,
   STALE_MS,
   WEEK_TOLD_KEY,
   MONTH_TOLD_KEY,
@@ -286,6 +288,10 @@ export async function tidy($: EngineInterface, isNow: boolean) {
 
   const at = await $.clock.now()
   let stale: { name: string; size: number }[] = []
+  // The fleet's files of sessions closed, or quiet, for a week: never read
+  // again, as a session is open six hours past its last reply at most.
+  let quiet: { name: string; size: number }[] = []
+  const fleetDir = own.dir.replace(SHARES_DIR, FLEET_DIR)
 
   try {
     stale = (await $.fs.list(own.dir)).filter(
@@ -299,18 +305,32 @@ export async function tidy($: EngineInterface, isNow: boolean) {
     // No folder: nothing kept yet.
   }
 
-  if (stale.length === 0) {
+  try {
+    quiet = (await $.fs.list(fleetDir)).filter(
+      entry => entry.kind === 'file' && SESSION_FILE.test(entry.name) && entry.name !== own.name && entry.mtimeMs < at - FLEET_STALE_MS,
+    )
+  } catch {
+    // No fleet folder: no session has joined it yet.
+  }
+
+  if (stale.length === 0 && quiet.length === 0) {
     return 'Nothing to tidy: no session file is over 31 days old.'
   }
 
-  const kb = Math.max(1, Math.round(stale.reduce((sum, entry) => sum + (entry.size ?? 0), 0) / 1024))
-  const files = `${stale.length} session ${stale.length === 1 ? 'file' : 'files'}`
+  const kb = Math.max(1, Math.round([...stale, ...quiet].reduce((sum, entry) => sum + (entry.size ?? 0), 0) / 1024))
+  const files = [
+    stale.length === 0 ? null : `${stale.length} session ${stale.length === 1 ? 'file' : 'files'} untouched for over 31 days`,
+    quiet.length === 0 ? null : `${quiet.length} fleet ${quiet.length === 1 ? 'file' : 'files'} quiet for over 7 days`,
+  ]
+    .filter(part => part !== null)
+    .join(' and ')
+  const count = stale.length + quiet.length
 
   if (!isNow) {
-    return `${files} untouched for over 31 days (${kb} KB) are no longer read. /tokens tidy now deletes them.`
+    return `${files} (${kb} KB) are no longer read. /tokens tidy now deletes them.`
   }
 
-  const paths = stale.map(({ name }) => `${own.dir}/${name}`)
+  const paths = [...stale.map(({ name }) => `${own.dir}/${name}`), ...quiet.map(({ name }) => `${fleetDir}/${name}`)]
   const isWindows = (await $.env.get('OS')) === 'Windows_NT'
   const argv = isWindows
     ? ['powershell', '-NoProfile', '-Command', `Remove-Item -LiteralPath ${paths.map(path => `'${path.replaceAll("'", "''")}'`).join(',')}`]
@@ -320,7 +340,7 @@ export async function tidy($: EngineInterface, isNow: boolean) {
     const done = await $.process.run(argv, { timeoutMs: NOTIFY_MS })
 
     return done.exitCode === 0
-      ? `Deleted ${stale.length} old session ${stale.length === 1 ? 'file' : 'files'} (${kb} KB).`
+      ? `Deleted ${count} old session ${count === 1 ? 'file' : 'files'} (${kb} KB).`
       : `Tidy failed (exit ${done.exitCode}): ${done.stderr.trim().slice(0, 120)}`
   } catch (error) {
     return `Tidy failed: ${error instanceof Error ? error.message : String(error)}`

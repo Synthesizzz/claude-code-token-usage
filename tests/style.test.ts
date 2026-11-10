@@ -115,12 +115,12 @@ test('help sets out the words by what they do, a line each; an unknown word poin
   // The six words of every day first, then the settings, then the checks.
   expect(lines.slice(0, 3)).toEqual([
     '/tokens words:',
-    '  main: (nothing) for the usage pane, style for its buttons, agents, context, next, list, help',
+    '  main: (nothing) for the usage pane, style for its buttons, agents, context, next, fleet, list, help',
     'settings, most also a button in /tokens style:',
   ])
   expect(lines.slice(-2)).toEqual(['checks:', '  alerts test [week|cache|lapsed]'])
   expect('text' in help && help.text).toContain('\n  look: a preset (classic, timeline, quiet, neon, split), layout <rings|bars|compact|frames|stack>')
-  expect('text' in help && help.text).toContain('\n  parts: show|hide <context|countdown|forecast|cost|alerts|crab|breakdown>')
+  expect('text' in help && help.text).toContain('\n  parts: show|hide <context|countdown|forecast|cost|alerts|crab|breakdown|fleet>')
   expect('text' in help && help.text).toContain('alerts popup <on|off>, alerts privacy <on|off>, alerts quiet <from-to|off>')
   expect('text' in help && help.text).toContain('\n  data: export, tidy [now], reset')
   expect('text' in help && help.text).toContain('color background <#hex|off>')

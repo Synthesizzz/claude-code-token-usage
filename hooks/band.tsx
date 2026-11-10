@@ -37,6 +37,7 @@ import {
 import { note, trouble } from './measure'
 import { act, cacheSaid as pricing, heard, hush, pressMove } from './notices'
 import { nextMove, payback, quietSoon } from './next'
+import { GLYPHS, dotColor, dotHint, dotsOf, fleetRows } from './fleet'
 import type { Seen } from './next'
 import { cellsOfSplit, splitSvg } from './advice'
 import type { ChoiceKey } from './advice'
@@ -62,6 +63,10 @@ const HINT = 'hint-'
 const HINT_MOVE = `${HINT}move`
 const HINT_CACHE = `${HINT}cache`
 const HINT_CONTEXT = `${HINT}context`
+const HINT_FLEET = `${HINT}fleet-`
+
+// Every open session's fleet file as last read.
+const fleet = atom({ plugin: 'token-usage', key: 'fleet' } as const, [])
 
 // Not `snapshot`: a session reloaded from 0.1.0 still holds that key in its old shape.
 const snapshot = atom({ plugin: 'token-usage', key: 'usage' } as const, null)
@@ -180,6 +185,15 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
         />
       )
     const action = move?.label ?? null
+    // The other open sessions, a dot each, while the part is shown.
+    const { dots, more } = style.hidden.includes('fleet') ? { dots: [], more: 0 } : dotsOf(fleetRows(await read($, fleet), at, scope.fleetId))
+    const moreText = more > 0 ? ` +${more}` : ''
+    const dotsDrawn = (isHinted: boolean) =>
+      dots.map((row, index) => (
+        <Text key={`fleet-${row.id}`} {...dotColor(row.phase)} {...(isHinted ? { hover: { scope: `${HINT_FLEET}${index}`, underline: true } } : {})}>
+          {GLYPHS[row.phase]}
+        </Text>
+      ))
     // In quiet hours the band says until when; the crab sleeps through them.
     const quiet =
       style.quiet !== null && isQuiet(style.quiet, at)
@@ -438,6 +452,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
                 : { scope: HINT_CACHE, label: 'Why a big context costs', hint: hints.why },
             ]),
         ...(hasSizeHint ? [{ scope: HINT_CONTEXT, label: sizeLabel, hint: sizeHint }] : []),
+        ...dots.map((row, index) => ({ scope: `${HINT_FLEET}${index}`, ...dotHint(row) })),
       ]
 
       // The row is fitted by estimate, so two guards stay: no group gives up
@@ -529,6 +544,12 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
             )}
             {fitted.hasCost && cacheSaid !== null && <Box flexShrink={0}>{cacheText(cacheSaid)}</Box>}
             {fitted.hasCost && newsPress !== null && <Box flexShrink={0}>{newsPress}</Box>}
+            {dots.length > 0 && (
+              <Box key="fleet" gap={1} alignItems="center" flexShrink={0}>
+                {dotsDrawn(true)}
+                {more > 0 && <Text dimColor>{moreText.trim()}</Text>}
+              </Box>
+            )}
           </Box>
           {problems.map(line => (
             <Text dimColor>{line}</Text>
@@ -560,6 +581,14 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
     const hasNews = news !== null && room(news.text.length)
     const hasCache = cacheSaid !== null && room(cacheSaid.text.length)
     const hasMix = held !== null && hasContext && room(TERMINAL_CELLS + (hasSecondRow ? MIX_WORD.length : 0), hasSecondRow ? 3 : 1)
+    // The dots ask for their room last: where it is short they go first.
+    const hasFleet = dots.length > 0 && room(dots.length + moreText.length)
+    const fleetDrawn = (
+      <Box key="fleet">
+        {dotsDrawn(false)}
+        {more > 0 && <Text dimColor>{moreText}</Text>}
+      </Box>
+    )
     const barOf = (spent: number | null, gone: number | null, color: string) =>
       eighths(spent, gone, barCells).map(({ text, isNow }) => (
         <Text color={color} backgroundColor={isNow ? 'inactive' : 'subtle'}>
@@ -569,7 +598,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
     const hasCrabRows =
       e.props.maxRows >= CRAB_MIN_ROWS && e.props.bodyColumns >= CRAB_MIN_COLUMNS
     const crabDrawn = CRAB_ROWS.map(row => <Text color={talk === null ? undefined : toneOf(talk.kind)}>{row}</Text>)
-    const second = hasSecondRow && (hasMix || hasCache || hasNews) ? (
+    const second = hasSecondRow && (hasMix || hasCache || hasNews || hasFleet) ? (
       <Box gap={3} paddingLeft={SECOND_INDENT}>
         {hasMix && (
           <Box gap={1}>
@@ -579,6 +608,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
         )}
         {hasCache && cacheSaid !== null && cacheText(cacheSaid)}
         {hasNews && newsPress}
+        {hasFleet && fleetDrawn}
       </Box>
     ) : null
 
@@ -676,6 +706,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
           {quiet !== null && <Text dimColor>{quiet}</Text>}
           {!hasSecondRow && hasCache && cacheSaid !== null && cacheText(cacheSaid)}
           {!hasSecondRow && hasNews && newsPress}
+          {!hasSecondRow && hasFleet && fleetDrawn}
         </Box>
         {second}
         {problems.map(line => (

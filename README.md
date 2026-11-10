@@ -41,8 +41,9 @@ Seven words for every day:
 | `/tokens agents` | Opens a pane of the subagents of the turn, a card each with a crab dressed for its job |
 | `/tokens context` | Opens a pane of what fills the context, as `/context` breaks it down: the grid, its rows, the MCP servers, memory files, skills and agents |
 | `/tokens next` | Says the band's next move and why, with the figures it weighed: the context, what a step reads, what a compaction pays back in, the cache and quiet hours (see [The next move](#the-next-move)) |
+| `/tokens fleet` | Says every open session, a line each: working or its cache, its context, what waking it costs (see [The fleet](#the-fleet)) |
 | `/tokens list` | Says what is chosen, how wide the band is, and what it left out |
-| `/tokens help` | Lists every word: these seven, then the settings a line for each kind (look, parts, alerts, budgets, hand off, context, data), then the checks |
+| `/tokens help` | Lists every word: these eight, then the settings a line for each kind (look, parts, alerts, budgets, hand off, context, data), then the checks |
 
 ### Settings
 
@@ -247,6 +248,24 @@ The band holds at most one button beside the context: the move that fits now, or
 On the desktop the pointer on the button opens why, at the band's top. `/tokens next` says the same with its figures, on any surface.
 
 What a compaction pays back in: what each turn saves reading a summary in place of the context, against its price. Both come from 164 compactions measured in transcripts: a compaction leaves about 130k (the setup and the summary), and costs about 200k tokens at the full input price, most of it the next step writing the new context to the cache. A turn takes the median of this session's last five turns' steps, or 3 until it has one. At 400k and 3 steps a turn a compaction pays back in about 5 turns, so the size alone (step 6) is what brings it there; step 7 comes in sessions whose turns are long.
+
+## The fleet
+
+Each session keeps a small file of its own in `~/.claude/token-usage/fleet/`: its folder, how its first prompt began, when it last replied, its context, its model, how long its cache lasts, whether a turn runs, and when it ended. Every session reads them all, at the end of a turn and each half minute.
+
+A session is open until it ends, or for six hours past its last reply (or past the start of a turn that never ended, its process gone). The band draws a dot for each open session once there are two or more: `◉` at work, a green `●` while its cache holds, a yellow `●` near the lapse, a dim `○` once it has lapsed. Six at most, then `+n`. On the desktop the pointer on a dot names the session and says its figures; `/tokens fleet` says them all. `/tokens hide fleet` hides the dots.
+
+Waking a session costs its next turn's read of the context: at the cache's read price while it holds, at its write price once it has lapsed, said in tokens at the full input price. A lapsed 200k context on Opus 5.5 costs about 400k to wake, a warm one about 10k.
+
+A name is the folder the session runs in and how its first prompt began, cut at 24 cells. Two sessions with one name carry the first four characters of their ids. The app's own titles are not open to a mod.
+
+`~/.claude/token-usage/fleet.json` holds the open sessions for another program, rewritten at the end of each turn and as a session ends:
+
+```json
+{ "writtenAt": 0, "sessions": [{ "id": "", "label": "", "cwd": "", "at": 0, "tokens": 0, "ttl": 3600000, "isWorking": false, "phase": "warm", "wakeTokens": 0 }] }
+```
+
+`phase` and `wakeTokens` are as they stood at `writtenAt`: work the phase out again from `at` and `ttl`. Sessions write it in turn, so a read may find it half written: read it again.
 
 ## Hand off instead of Start fresh
 

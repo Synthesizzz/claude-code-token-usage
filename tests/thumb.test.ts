@@ -53,7 +53,7 @@ test('the picker pictures each palette above its button, by where it reads, wher
     expect(pictures.map(picture => picture.props.alt)).toEqual(
       PALETTE_GROUPS.flatMap(({ names }) => names).map(name => `${name} palette`),
     )
-    expect(await picker.findAll({ type: 'Button' })).toHaveLength(67)
+    expect(await picker.findAll({ type: 'Button' })).toHaveLength(68)
     expect([pictures[0]?.props.width, pictures[0]?.props.height]).toEqual([42, 15])
     // The bars stand at the top, with room under them before the name.
     expect(String(pictures[0]?.props.source)).toContain('height="15" viewBox="0 0 42 15"')
@@ -70,7 +70,7 @@ test('a terminal has no vector element: its picker is buttons alone', async ($, 
 
   const picker = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...PICKER })
 
-  expect(await picker.findAll({ type: 'Button' })).toHaveLength(67)
+  expect(await picker.findAll({ type: 'Button' })).toHaveLength(68)
   expect(await picker.find({ type: 'Text', text: 'Layout' })).toBeDefined()
 })
 
