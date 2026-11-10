@@ -77,6 +77,11 @@ export type Notify = 'both' | 'app' | 'windows'
 // across midnight.
 export type Quiet = { from: number; to: number }
 
+// The context sizes, in tokens, that colour it: yellow from `warn`, red
+// from `full`. Each step reads the whole context again, so its size is what
+// it costs, whatever the window it fills.
+export type Weight = { warn: number; full: number }
+
 export type Style = {
   layout: Layout
   palette: PaletteName
@@ -104,6 +109,8 @@ export type Style = {
   background: string | null
   // What Hand off sends as the person's own message, where Start fresh stood; '' keeps Start fresh.
   handoff: string
+  // The sizes that colour the context; null colours it by its share of the window.
+  weight: Weight | null
 }
 
 // Tokens by local day, then by project, for every session.

@@ -128,13 +128,13 @@ test('the desktop band draws each window as a double ring, its countdown in bold
 
   // 2h14m of five hours are left: 55% of the window is gone.
   expect(rings.map(ring => ring.props.alt)).toEqual([
-    'context 42%, Crab standing by',
+    'context 84.0k, 42% of the 200k window, Crab standing by',
     '5-hour 31% used, 55% of the window gone',
     'Weekly 90% used',
   ])
   expect(String(rings[2]?.props.source)).toContain('#e04f63')
   expect(await ui.findAll({ type: 'Client' })).toHaveLength(0)
-  expect((await ui.find({ type: 'Text', text: '42%' }))?.props.weight).toBe('semibold')
+  expect((await ui.find({ type: 'Text', text: '84.0k' }))?.props.weight).toBe('semibold')
   expect(await ui.find({ type: 'Text', text: 'context' })).toBeDefined()
   expect((await ui.find({ type: 'Text', text: '2h14m' }))?.props.weight).toBe('semibold')
   expect(await ui.find({ type: 'Text', text: '5-hour, 31% used' })).toBeDefined()
@@ -172,7 +172,7 @@ test('a desktop band too narrow for its layout falls back to the tight one and k
   const ui = await $.ui.mount(narrow(33))
 
   expect((await ui.findAll({ type: 'Svg' })).map(svg => svg.props.alt)).toEqual([
-    'context 42%, Crab standing by',
+    'context 84.0k, 42% of the 200k window, Crab standing by',
     '5h 31% used',
     'Week 90% used',
   ])
@@ -185,8 +185,8 @@ test('the narrowest desktop band is the context alone', async ($, on) => {
 
   const ui = await $.ui.mount(narrow(10))
 
-  expect((await ui.findAll({ type: 'Svg' })).map(svg => svg.props.alt)).toEqual(['context 42%, Crab standing by'])
-  expect((await ui.find({ type: 'Text', text: '42%' }))?.props.weight).toBe('semibold')
+  expect((await ui.findAll({ type: 'Svg' })).map(svg => svg.props.alt)).toEqual(['context 84.0k, 42% of the 200k window, Crab standing by'])
+  expect((await ui.find({ type: 'Text', text: '84.0k' }))?.props.weight).toBe('semibold')
 })
 
 test('a window with no known reset draws no countdown and no dash on the desktop', async ($, on) => {
@@ -208,7 +208,7 @@ test('the bars style draws each window as a bar of hour or day cells', { options
   const drawn = await ui.findAll({ type: 'Svg' })
 
   expect(drawn.map(svg => svg.props.alt)).toEqual([
-    'context 42%, Crab standing by',
+    'context 84.0k, 42% of the 200k window, Crab standing by',
     '5h 31% used, 55% of the window gone',
     'Week 90% used',
   ])

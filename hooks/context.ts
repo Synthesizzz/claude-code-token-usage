@@ -260,9 +260,10 @@ export const mixOf = (categories: readonly (Category & { color: string })[], cel
 const HEAVY_SET_UP = 0.25
 
 // What the band says of what fills the context, only where there is
-// something to do: a context past 80% says how much the messages hold (the
-// Compact beside it clears them); a set-up past a quarter of the room says
-// what is biggest in it (a server or skill not used can go). Otherwise nothing.
+// something to do: a crowded context (400k, or 80% of a smaller window) says
+// how much the messages hold (the Compact beside it clears them); a set-up
+// past a quarter of the room says what is biggest in it (a server or skill
+// not used can go). Otherwise nothing.
 export const contextNews = (
   categories: readonly Category[],
   rawMaxTokens: number,

@@ -28,7 +28,7 @@ import { cacheLine, learnedTtl } from './cache'
 import { contextLine } from './context'
 import { dashWidth, figuresSvg, ringsSvg, splitSvg } from './dash'
 import { paletteFor } from './style'
-import { clockAt, countdown, forecast, percentage, remaining, ring, short, tone } from './usage'
+import { clockAt, contextTone, countdown, forecast, percentage, remaining, ring, short, tone } from './usage'
 import {
   CONTEXT_PANE,
   PROJECT_SHARE,
@@ -92,14 +92,14 @@ export async function drawUsagePane($: Parameters<DrawUsagePaneHook>[0], e: Para
         <Text>{value}</Text>
       </Box>
     )
-    const dial = (percent: number | null, name: string, lines: string[]) => (
+    const dial = (percent: number | null, name: string, lines: string[], shade = tone(percent ?? 0)) => (
       <Box gap={1}>
         <Box flexDirection="column">
           {ring(percent).map(cells => (
             <Box>
               {runs(cells).map(({ text, kind }) =>
                 kind === 'on' ? (
-                  <Text color={tone(percent ?? 0)}>{text}</Text>
+                  <Text color={shade}>{text}</Text>
                 ) : (
                   <Text dimColor={kind === 'off'}>{text}</Text>
                 ),
@@ -271,7 +271,7 @@ export async function drawUsagePane($: Parameters<DrawUsagePaneHook>[0], e: Para
     if (!hasPictures) {
       return (
         <Box flexDirection="column">
-          {dial(usage.percent, 'CTX', fill)}
+          {dial(usage.percent, 'CTX', fill, contextTone(usage.tokens, usage.percent, style.weight))}
           {usage.limits.map(limit => dial(limit.percentUsed, short(limit.kind).toUpperCase(), said(limit)))}
           {tipsDrawn !== false && <Text> </Text>}
           {tipsDrawn}

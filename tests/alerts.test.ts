@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
-import { review } from '../hooks/alerts'
+import { isCrowded, review } from '../hooks/alerts'
+import { WEIGHT } from '../hooks/usage'
 import type { Alerted } from '../types'
 
 const MINUTE = 60_000
@@ -151,4 +152,71 @@ test('the context past 80% is news, and again after it was compacted', () => {
 
 test('an unknown context is never news', () => {
   expect(run([reading(10, 20, null), reading(10, 20, null)])).toEqual([[], []])
+})
+
+// The context on a 1M window, by its size: a share of it says little.
+const sized = (tokens: number | null, window = 1_000_000) => ({
+  ...reading(10, 20, tokens === null ? null : (tokens / window) * 100),
+  tokens,
+  window,
+})
+const runSized = (readings: ReturnType<typeof sized>[], weight: typeof WEIGHT | null = WEIGHT) => {
+  let memory: Alerted = {}
+  let before: ReturnType<typeof sized> | null = null
+  const said: string[][] = []
+
+  for (const after of readings) {
+    const judged = review(before, after, memory, 0, false, weight)
+
+    said.push(judged.notices.map(notice => notice.line))
+    memory = judged.memory
+    before = after
+  }
+
+  return said
+}
+
+test('a context crowds at 400k or at 80% of its window, whichever comes first', () => {
+  expect(isCrowded(400_000, 40, WEIGHT)).toBe(true)
+  expect(isCrowded(399_999, 40, WEIGHT)).toBe(false)
+  expect(isCrowded(170_000, 85, WEIGHT)).toBe(true)
+  expect(isCrowded(null, 80, WEIGHT)).toBe(true)
+  expect(isCrowded(null, 79, WEIGHT)).toBe(false)
+  expect(isCrowded(null, null, WEIGHT)).toBe(false)
+  // Weight off: the share alone.
+  expect(isCrowded(500_000, 50, null)).toBe(false)
+  expect(isCrowded(800_000, 80, null)).toBe(true)
+  expect(isCrowded(320_000, 32, { warn: 150_000, full: 300_000 })).toBe(true)
+})
+
+test('a context past 400k on a 1M window is news once a crossing, said in k, and again after a compaction', () => {
+  expect(runSized([sized(390_000), sized(401_000), sized(420_000), sized(450_000), sized(120_000), sized(410_000)])).toEqual([
+    [],
+    ['Context at 401k (40%): compact before the next long task'],
+    [],
+    [],
+    [],
+    ['Context at 410k (41%): compact before the next long task'],
+  ])
+
+  const { notices } = review(sized(390_000), sized(401_000), {}, 0, false, WEIGHT)
+
+  expect(notices[0]).toMatchObject({
+    kind: 'context',
+    title: 'Context at 401k',
+    text: 'Press Compact in the band, or run /compact.',
+    bar: { name: 'Context', label: '401k' },
+  })
+})
+
+test('with the weight off a context on a 1M window is news only at 80%', () => {
+  expect(runSized([sized(390_000), sized(450_000), sized(810_000)], null)).toEqual([
+    [],
+    [],
+    ['Context at 810k (81%): compact before the next long task'],
+  ])
+})
+
+test('a context whose size is not known yet is news by its share, as before', () => {
+  expect(runSized([sized(null), { ...sized(null), percent: 82 }])).toEqual([[], ['Context at 82%: compact before the next long task']])
 })

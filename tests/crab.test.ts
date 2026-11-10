@@ -290,7 +290,7 @@ test('a notice brings the crab walking on above the band, with its words and an 
   expect(String(stage?.props.source)).toContain('class="dp"')
   expect(String(stage?.props.source)).toContain('@keyframes zw')
   expect(String(stage?.props.source)).toContain('translate(149.1 7)')
-  expect(context?.props.alt).toBe('context 42%')
+  expect(context?.props.alt).toBe('context 84.0k, 42% of the 200k window')
   expect((await ui.find({ type: 'Text', text: '5-hour window at 86%' }))?.props.weight).toBe('semibold')
   expect(await ui.find({ type: 'Text', text: 'Resets in 2h14m.' })).toBeDefined()
 
@@ -302,7 +302,7 @@ test('a notice brings the crab walking on above the band, with its words and an 
   expect(await ui.find({ type: 'Button', key: 'crab-ok' })).toBeUndefined()
 
   await clock.advance(600)
-  expect((await first())?.props.alt).toBe('context 42%, Crab standing by')
+  expect((await first())?.props.alt).toBe('context 84.0k, 42% of the 200k window, Crab standing by')
   expect(await ui.find({ type: 'Text', text: '5-hour window at 86%' })).toBeUndefined()
 })
 
@@ -323,7 +323,7 @@ test('the crab leaves by itself after eight seconds, walking off', async ($, on)
   expect(String((await first())?.props.source)).toContain('@keyframes zo')
 
   await clock.advance(600)
-  expect((await first())?.props.alt).toBe('context 42%, Crab standing by')
+  expect((await first())?.props.alt).toBe('context 84.0k, 42% of the 200k window, Crab standing by')
 })
 
 test('a desktop session hands the notice for outside the app to the notification hooks', async ($, on) => {
@@ -398,7 +398,7 @@ test('with the crab switched off a notice is a toast alone', async ($, on) => {
   const [context] = await ui.findAll({ type: 'Svg' })
 
   expect(toasts).toEqual(['5-hour window at 86%, resets in 2h14m'])
-  expect(context?.props.alt).toBe('context 42%')
+  expect(context?.props.alt).toBe('context 84.0k, 42% of the 200k window')
   expect(String(context?.props.source)).not.toContain('class="c1"')
 })
 
@@ -426,7 +426,7 @@ test('alerts switched off keep the crab away too', async ($, on) => {
 
   const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band() })
 
-  expect((await ui.findAll({ type: 'Svg' }))[0]?.props.alt).toBe('context 42%, Crab standing by')
+  expect((await ui.findAll({ type: 'Svg' }))[0]?.props.alt).toBe('context 84.0k, 42% of the 200k window, Crab standing by')
 })
 
 test('the test alert brings the crab too', async ($, on) => {
@@ -448,17 +448,17 @@ test('while a turn runs the crab works at its laptop where the context ring was'
   const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band(true) })
   const [working] = await ui.findAll({ type: 'Svg' })
 
-  expect(working?.props.alt).toBe('context 42%, working')
+  expect(working?.props.alt).toBe('context 84.0k, 42% of the 200k window, working')
   expect([working?.props.width, working?.props.height]).toEqual([55, 24])
   expect(String(working?.props.source)).toContain('class="c1"')
   // The figure beside it is still there to read.
-  expect((await ui.find({ type: 'Text', text: '42%' }))?.props.weight).toBe('semibold')
+  expect((await ui.find({ type: 'Text', text: '84.0k' }))?.props.weight).toBe('semibold')
 
   await ui.redraw(band(false).props)
   const [resting] = await ui.findAll({ type: 'Svg' })
 
   // Done, it stands by there, as wide as it sleeps.
-  expect(resting?.props.alt).toBe('context 42%, Crab standing by')
+  expect(resting?.props.alt).toBe('context 84.0k, 42% of the 200k window, Crab standing by')
   expect([resting?.props.width, resting?.props.height]).toEqual([32, 24])
 })
 

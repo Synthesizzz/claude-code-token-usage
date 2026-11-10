@@ -3,10 +3,10 @@
 
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
-import type { Snapshot } from '../types'
+import type { Snapshot, Weight } from '../types'
 import { review } from './alerts'
 import { spentSince, usd } from './cost'
-import { failedLine, readReading, record, resets, unreadLine } from './usage'
+import { WEIGHT, failedLine, readReading, record, resets, unreadLine } from './usage'
 import type { Reading } from './usage'
 import { countContext, pay, recount } from './ledger'
 import { RESET_MS, tick } from './state'
@@ -85,6 +85,7 @@ export async function measure(
   weekBudget: number | null = null,
   projectBudgets: Readonly<Record<string, number>> = {},
   monthBudget: number | null = null,
+  weight: Weight | null = WEIGHT,
 ) {
   const reading = readReading(context, rateLimits, cost)
   const at = await $.clock.now()
@@ -98,7 +99,7 @@ export async function measure(
   await update($, snapshot, held => {
     const after = toSnapshot(held ?? null, at, reading)
 
-    judged = review(held ?? null, after, told, at, hasEarlyAlert)
+    judged = review(held ?? null, after, told, at, hasEarlyAlert, weight)
     renewed = resets(held ?? null, after)
     spent = spentSince(held ?? null, after.usd)
 

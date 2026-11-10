@@ -1,5 +1,6 @@
-import type { Alerted, Notice, Snapshot } from '../types'
-import { FULL_AT, WARN_AT, countdown, forecast, hasReset, remaining, title } from './usage'
+import type { Alerted, Notice, Snapshot, Weight } from '../types'
+import { shortTokens } from './cost'
+import { FULL_AT, WARN_AT, WEIGHT, countdown, forecast, hasReset, remaining, title } from './usage'
 
 // What in a reading is worth telling the person, given what they were told
 // already. Each line is news once per window.
@@ -26,8 +27,10 @@ export const loudest = (notices: readonly Notice[]) =>
     notice => notice !== undefined,
   ) ?? null
 
-export const isCrowded = (percent: number | null) =>
-  percent !== null && percent >= CONTEXT_AT
+// A context is crowded at the full size, or at 80% of a window smaller than
+// that, whichever comes first; with the weight off, at 80% alone.
+export const isCrowded = (tokens: number | null, percent: number | null, weight: Weight | null) =>
+  (weight !== null && tokens !== null && tokens >= weight.full) || (percent !== null && percent >= CONTEXT_AT)
 
 export const review = (
   before: Snapshot | null,
@@ -35,6 +38,7 @@ export const review = (
   memory: Alerted,
   now: number,
   hasEarlyAlert: boolean,
+  weight: Weight | null = WEIGHT,
 ) => {
   const next: Alerted = {}
   const notices: Notice[] = []
@@ -111,22 +115,26 @@ export const review = (
     }
   }
 
-  if (after.percent !== null) {
-    const percent = Math.round(after.percent)
+  if (after.percent !== null || after.tokens !== null) {
+    const percent = Math.round(after.percent ?? 0)
     const wasTold = (memory[CONTEXT] ?? NOTHING).levels.includes(CONTEXT_AT)
+    const isFull = isCrowded(after.tokens, after.percent, weight)
+    // Said by its size where it is known, its share beside it.
+    const size = after.tokens === null ? `${percent}%` : shortTokens(after.tokens)
+    const said = after.tokens === null || after.percent === null ? size : `${size} (${percent}%)`
 
-    if (isCrowded(after.percent) && !wasTold && before !== null) {
+    if (isFull && !wasTold && before !== null) {
       notices.push({
         kind: 'context',
-        title: `Context at ${percent}%`,
+        title: `Context at ${size}`,
         text: 'Press Compact in the band, or run /compact.',
-        line: `Context at ${percent}%: compact before the next long task`,
-        bar: { name: 'Context', value: Math.min(1, percent / 100), label: `${percent}%`, status: '' },
+        line: `Context at ${said}: compact before the next long task`,
+        bar: { name: 'Context', value: Math.min(1, percent / 100), label: size, status: '' },
       })
     }
 
     // Under the line again (a compaction): the next climb is news again.
-    next[CONTEXT] = { levels: isCrowded(after.percent) ? [CONTEXT_AT] : [], hasPace: false }
+    next[CONTEXT] = { levels: isFull ? [CONTEXT_AT] : [], hasPace: false }
   }
 
   return { notices, memory: next }

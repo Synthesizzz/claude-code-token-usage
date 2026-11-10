@@ -18,11 +18,15 @@ Answer `y` to add the marketplace, then pick a scope. Installed at the user scop
 
 | Where | What you see |
 | --- | --- |
-| Terminal | A row of the context, 5-hour and weekly figures with their percentages; countdowns, forecast and cost while there is room. Where the row has room left, each figure is a bar filled by eighths of a cell (10, 8 or 6 cells), and a window's bar lights the cell of the time gone, so a bar past it is spending faster than the clock; with no room, ring glyphs. With a second row to spare, what fills the context, the cache countdown and the word of what to do go beneath, where a narrow row still has them. The context glyph spins while a turn runs. |
-| Desktop app | The same figures as vector drawings, in one of five layouts, fitted to the width of the window. A small crab brings each alert in a row of its own, and lives where the context ring would be: at a laptop while a turn runs, standing by between turns, asleep after two minutes. |
+| Terminal | A row of the context by its size (`374k`), and the 5-hour and weekly figures with their percentages; countdowns, forecast and cost while there is room. Where the row has room left, each figure is a bar filled by eighths of a cell (10, 8 or 6 cells), and a window's bar lights the cell of the time gone, so a bar past it is spending faster than the clock; with no room, ring glyphs. With a second row to spare, what fills the context, the cache countdown and the word of what to do go beneath, where a narrow row still has them. The context glyph spins while a turn runs. |
+| Desktop app | The same figures as vector drawings, in one of five layouts, fitted to the width of the window. Beside the context's size, what each step reads again: `374k context · 18.7k/step`. A small crab brings each alert in a row of its own, and lives where the context ring would be: at a laptop while a turn runs, standing by between turns, asleep after two minutes. |
 | `/tokens` | A pane with a dial per figure, the reset and forecast for each window, the tokens of the last turn, and tokens counted: this session, the last turn, today, the last seven days as a chart, how much of the last turn's input was read from the cache, the last seven days by project, by model and by subagent, the month so far in dollars, and the heaviest turns of the day. |
 
 The band is drawn on the terminal and the desktop app. VS Code and the mobile app do not draw a band; `/tokens` still opens its pane there.
+
+The context is said by its weight, not its share of the window. Each step of a turn reads the whole context again from the cache, so 374k costs the same on a 1M window as on any other, and a share of 1M says little (374k is 37%, which read as calm). Its colour turns yellow from 200k and red from 400k, or at 60% and 85% of a window smaller than that, whichever comes first; `/tokens weight` sets the sizes, and `weight off` colours it by its share as before. The 5-hour and weekly windows keep their percentages and colours.
+
+On the desktop `· 18.7k/step` is the context at the cache's read price of the model of the last response: tokens at the full input price, a twentieth of 374k on Opus 5.5 and Sonnet 5.5, a fortieth on Fable 5.1 and Mythos 5.1, a tenth on the others. It is not drawn until a response has named its model, and it is the first part to go when the band is narrow. The share of the window is in the ring's alt text and in the hint the pointer opens on the size (`Context 374k of 1.0M (37%)`). A terminal says the size alone, held at five cells. Before a size is known (the start of a session) the band says the share.
 
 On the desktop the pane is a dashboard: the context and the windows as rings inside one another with their figures written large, the tips under them, this session, today and the last seven days as large counts above the week's chart, and the month so far in dollars under it (against its budget, where one is set), and where the week's tokens went as one bar by project, one by model and one by subagent. A terminal says the same in text, the rings in braille. The pictures' words take a dark ink on a light page and a light one on a dark page; each says what it shows in its alt text. The pictures take the pane's width; in a narrow pane the rings stand above their words and the counts go one under another.
 
@@ -37,7 +41,7 @@ Six words for every day:
 | `/tokens agents` | Opens a pane of the subagents of the turn, a card each with a crab dressed for its job |
 | `/tokens context` | Opens a pane of what fills the context, as `/context` breaks it down: the grid, its rows, the MCP servers, memory files, skills and agents |
 | `/tokens list` | Says what is chosen, how wide the band is, and what it left out |
-| `/tokens help` | Lists every word: these six, then the settings a line for each kind (look, parts, alerts, budgets, data), then the checks |
+| `/tokens help` | Lists every word: these six, then the settings a line for each kind (look, parts, alerts, budgets, hand off, context, data), then the checks |
 
 ### Settings
 
@@ -61,6 +65,7 @@ Most have a button in `/tokens style` too; colour levels, the background, other 
 | `/tokens budget week 50` · `budget week off` | Sets a budget in dollars a week, Monday to Sunday, or drops it |
 | `/tokens budget month 200` · `budget month off` | Sets a budget in dollars a calendar month, or drops it |
 | `/tokens budget project here 5` · `budget project shop off` | Sets a budget in dollars a day for a project (`here` is the folder the session runs in), or drops it |
+| `/tokens weight 200k 400k` · `weight off` | Sets the context sizes that turn it yellow and red (200k and 400k to start with; `250000 500000` and `1.5m 3m` work too, the first under the second), or colours it by its share of the window, at 60% and 85%. They also set when Compact and the context's alert come (at the second size) and when a heavy turn says to compact after (at the first). `weight` alone says what is set, `weight on` puts the sizes back |
 | `/tokens handoff Hand off now` · `handoff off` | Sets the message the Start fresh buttons send as your own, where they would clear the conversation; they say **Hand off** then. Off to start with: Start fresh runs `/clear`, as ever (see [Hand off](#hand-off-instead-of-start-fresh)) |
 | `/tokens export` | Writes the last 31 days of every session to `~/.claude/token-usage/export-<day>.csv` (a row a day: dollars, tokens) and `.json` (with tokens by project and by model) |
 | `/tokens tidy` · `tidy now` | Says how many session files are over 31 days old and no longer read; `now` deletes them |
@@ -86,8 +91,8 @@ Each is raised once per window:
 - a window passes 85%, or reaches its limit
 - a window will be full before it resets, at the pace of the last half hour
 - a window that was near its limit resets
-- the context passes 80%; the band then shows a `Compact` button
-- a turn, while it runs, passes five times a usual turn (the median of the last twenty main turns, every session's, so a new session goes by the ones before it), and never under 300k tokens; with fewer than three turns to go by, at 500k. A subagent's tokens count toward the turn it runs in. Said once a turn, with why it is heavy, a bar of where its tokens went (the context re-read, read anew, output, subagents), and buttons for what fits, the best first, pressed with 1, 2, 3 even from an empty prompt: near the 5-hour limit, **Stop now**; subagents doing most of it, **Keep going** or **See agents**; a context near full, **Compact after** (the turn finishes, then it compacts); a lapsed cache, **Keep going**, **Compact after** or **Warn at 2×** (twice as high for the session), and no stop: the lapse was paid at the turn's first step, so stopping gets none of it back. **Stop now** ends the turn at once, as Esc does, and asks what next: **Compact** where the context is half full or more, **Start fresh** (`/clear`, or **Hand off** where one is set) where it is light, or **Continue**, which sends "Continue where you stopped." as your own message.
+- the context passes 400k, or 80% of a window smaller than that, whichever comes first (the second size of `/tokens weight`; with the weight off, 80%); said by its size, `Context at 412k (41%)`. The band then shows a `Compact` button. A context that falls back under it (a compaction) is news again the next time it passes
+- a turn, while it runs, passes five times a usual turn (the median of the last twenty main turns, every session's, so a new session goes by the ones before it), and never under 300k tokens; with fewer than three turns to go by, at 500k. A subagent's tokens count toward the turn it runs in. Said once a turn, with why it is heavy, a bar of where its tokens went (the context re-read, read anew, output, subagents), and buttons for what fits, the best first, pressed with 1, 2, 3 even from an empty prompt: near the 5-hour limit, **Stop now**; subagents doing most of it, **Keep going** or **See agents**; a context past 200k, or 70% of its window (the first size of `/tokens weight`), **Compact after** (the turn finishes, then it compacts); a lapsed cache, **Keep going**, **Compact after** or **Warn at 2×** (twice as high for the session), and no stop: the lapse was paid at the turn's first step, so stopping gets none of it back. **Stop now** ends the turn at once, as Esc does, and asks what next: **Compact** where the context is half full or more, **Start fresh** (`/clear`, or **Hand off** where one is set) where it is light, or **Continue**, which sends "Continue where you stopped." as your own message.
 - a window passes 60%, if you switch that on
 - the day's cost passes 80% of your budget, or all of it, if you set one
 - the week's cost, Monday to today, passes 80% of your weekly budget, or all of it, if you set one
@@ -105,17 +110,17 @@ In the app an alert is brought by a crab, in a row above the band, with the aler
 | limit reached | behind bars, shaking them now and then |
 | filling too fast | runs |
 | window reset | both claws up, jumping |
-| context past 80% | squeezed between two walls |
+| context past 400k, or 80% of its window | squeezed between two walls |
 | budget nearly spent | wide eyes, a drop of sweat, a shiver |
 | budget spent | behind bars |
 
-While a turn runs, the crab sits at a laptop where the context ring was, and code types out on the screen; the percentage stays beside it. This widens the band by about three and a half columns for as long as the turn runs, so a narrow window may drop its last part meanwhile.
+While a turn runs, the crab sits at a laptop where the context ring was, and code types out on the screen; the size stays beside it. This widens the band by about three and a half columns for as long as the turn runs, so a narrow window may drop its last part meanwhile.
 
 When the turn ends the crab stands by in the same place: it breathes, looks ahead, then up at the figures beside it, blinks between, and taps its feet now and then. A session begun, or begun anew with Start fresh (`/clear`), starts with it standing by too. While it is out bringing news, or in quiet hours, the ring is there instead.
 
 Two minutes with nothing to do, after a turn or since the session began, the crab falls asleep in the same place, breathing, with z's rising (up to half a minute later: the band's clock moves at least each half minute). The percentage stays beside it, standing or asleep, and the band is a column wider than with the ring. News wakes it, a new turn puts it back at the laptop, and in quiet hours it keeps the nap it has by the words. A terminal shows `ᶻᶻ` in place of the ring glyph meanwhile; standing by, it keeps the glyph.
 
-With the crab on, the desktop band no longer draws the context ring: the percentage and the bar of what fills the context say how full it is. `/tokens hide crab` brings the ring back.
+With the crab on, the desktop band no longer draws the context ring: the size and the bar of what fills the context say how full it is. `/tokens hide crab` brings the ring back.
 
 A terminal draws the crab beside the alert when the band has forty columns to spare: with six rows, in half blocks, two pixels a cell, its body in the crab's colour and its eyes dark, four rows tall; with five, in block characters, three rows, in the colour of its news. It does not move there, and there is no laptop. Narrower than forty columns, or with fewer rows, the alert's words and buttons stand without the crab.
 
@@ -174,7 +179,7 @@ The pane counts tokens, which say more than dollars on a subscription: every tok
 
 ## Context and resets
 
-- Compact turns into the primary button when the context, at the rate its last three turns climbed, fills within three more turns, even before it is past 80%. A fall in the context is taken as a compaction, and only the turns after it count. After a compaction the band shows the size it left at once, without waiting for the next turn: the count the compaction reports, else the free local count of the window.
+- Compact turns into the primary button when the context, at the rate its last three turns climbed, fills within three more turns, even before it is past 400k or 80%. A fall in the context is taken as a compaction, and only the turns after it count. After a compaction the band shows the size it left at once, without waiting for the next turn: the count the compaction reports, else the free local count of the window.
 - The weekly window is forecast at the week's own pace: what it has used over the share of the week gone, from half a day in. Where that fills it before its reset, the pane, the band and an alert say when (`full in 1d 12h`). Half an hour of slope, which the 5-hour window goes by, says little about a week.
 - The pane gives each reset in clock time too (`reset 2h14m, at 14:14`, with the weekday where it is not today).
 - Past 85% of the 5-hour window, the band says when a big task can start (`big task? after 15:20`), in the place of the forecast.
@@ -190,7 +195,7 @@ The pane counts tokens, which say more than dollars on a subscription: every tok
 
 Under its figure the pane says the set-up, what the context holds before any message (every row but the messages), and how it has grown since the earliest day of the last week, with the row that moved most (`Set-up 26.3k · was 22.7k on 10-09 (+3.6k: MCP tools +3.2k)`). Each day's set-up is the latest counted that day by any session, kept thirty days.
 
-In the band, what fills the context is drawn small. Under the context ring on the desktop, and after `CTX` in a terminal, a bar splits what is used into its rows, each in the pane's colour (8 cells on the desktop, 10 in a terminal). Beside the cost a word says what to do, only when there is something to do: past 80% how much the messages hold (`messages 110k`, beside Compact), or, where the set-up takes a quarter of the room the window leaves before its buffer, what is biggest in it (`set-up 55.3k · System tools 34.2k`), so a server or a skill not used can go. A press on the word opens this pane. A terminal with a second row puts them there, under the context's bar; on one row, the word goes in first, then the cache, then the bar; on the desktop the bar goes with the word "context". The band counts the context from the first turn, the free way; `/tokens hide breakdown` stops both.
+In the band, what fills the context is drawn small. Under the context ring on the desktop, and after `CTX` in a terminal, a bar splits what is used into its rows, each in the pane's colour (8 cells on the desktop, 10 in a terminal). Beside the cost a word says what to do, only when there is something to do: past 400k, or 80% of a smaller window, how much the messages hold (`messages 110k`, beside Compact), or, where the set-up takes a quarter of the room the window leaves before its buffer, what is biggest in it (`set-up 55.3k · System tools 34.2k`), so a server or a skill not used can go. A press on the word opens this pane. A terminal with a second row puts them there, under the context's bar; on one row, the word goes in first, then the cache, then the bar; on the desktop the bar goes with the word "context". The band counts the context from the first turn, the free way; `/tokens hide breakdown` stops both.
 
 The pane keeps up by itself: once it or `/tokens` has counted the context, the context is counted again, the free way, after every turn that moves it and after every compaction, so `Refresh` is needed only to count now. An exact count (`Count exactly`) stays until the next turn, then the free count takes its place.
 
@@ -243,7 +248,7 @@ Everywhere the band or the crab offers Start fresh (the lapsed cache's buttons, 
 
 ## The desktop band and its width
 
-The desktop app tells a mod its width in character cells, not pixels, so the band sizes itself by estimate. When the window is too narrow it gives up, in order: the cost, the word "context", the forecast, the words beside the figures; then it falls back to the `compact` layout; then names, countdowns, and the weekly window. The context is never dropped. `/tokens list` reports the width and what was left out.
+The desktop app tells a mod its width in character cells, not pixels, so the band sizes itself by estimate. When the window is too narrow it gives up, in order: the price per step, the cost, the word "context", the forecast, the words beside the figures; then it falls back to the `compact` layout; then names, countdowns, and the weekly window. The context is never dropped. `/tokens list` reports the width and what was left out.
 
 In a window's last five minutes its figure breathes slowly; at the reset the old fill drains away. This, and the crab's movement, are switched off for a reader whose system asks for reduced motion.
 

@@ -131,7 +131,7 @@ test('a narrow band gives up cost, countdowns and the later window, never the co
       (await ui.find({ type: 'Text', text })) !== undefined
 
     return {
-      context: await has('42%'),
+      context: await has('84.0k'),
       fiveHour: await has('5H'),
       sevenDay: await has('7D'),
       countdown: await has('2h14m'),

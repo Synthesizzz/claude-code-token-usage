@@ -8,9 +8,11 @@ import type {
   Quiet,
   Style,
   Tone,
+  Weight,
 } from '../types'
+import { shortTokens } from './cost'
 import { DEFAULTS, isHex, paletteOf } from './svg'
-import { brief, short, title } from './usage'
+import { WEIGHT, brief, short, title } from './usage'
 
 // How the band looks, and the words of `/tokens` that change it.
 
@@ -73,6 +75,7 @@ const HELP = [
   `  alerts: alerts <on|off|${NOTIFY.join('|')}>, alerts 60 <on|off>, alerts popup <on|off>, alerts privacy <on|off>, alerts quiet <from-to|off>`,
   '  budgets: budget <dollars a day|off>, budget week <dollars|off>, budget month <dollars|off>, budget project <name|here> <dollars|off>',
   '  hand off: handoff <text|off>, the message the Start fresh buttons send as your own, instead of clearing',
+  '  context: weight <warn> <full>|off, the sizes that turn the context yellow and red (200k 400k); off colours it by its share of the window',
   '  data: export, tidy [now], reset',
   'checks:',
   '  alerts test [week|cache|lapsed]',
@@ -108,6 +111,7 @@ export const defaults = (options: Readonly<Record<string, unknown>>): Style => {
     hasPopup: true,
     background: null,
     handoff: '',
+    weight: WEIGHT,
   }
 }
 
@@ -146,13 +150,33 @@ const contrastWithWhite = (hex: string) => {
 const isBudget = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value > 0
 
+const isWeight = (value: unknown): value is Weight => {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+
+  const { warn, full } = value as Record<string, unknown>
+
+  return isBudget(warn) && isBudget(full) && warn < full
+}
+
+// A size as typed: 200k, 1.5m, or tokens, 250000.
+const sizeOf = (word: string) => {
+  const [, figure, unit] = /^(\d+(?:\.\d+)?)([km]?)$/i.exec(word) ?? []
+  const scale = unit?.toLowerCase() === 'k' ? 1000 : unit?.toLowerCase() === 'm' ? 1_000_000 : 1
+
+  return figure === undefined ? null : Math.round(Number(figure) * scale)
+}
+
+const weightWords = (weight: Weight) => `${shortTokens(weight.warn)} ${shortTokens(weight.full)}`
+
 // What the store hands back is anything at all: a style, or nothing.
 export const sane = (value: unknown): Style | null => {
   if (typeof value !== 'object' || value === null) {
     return null
   }
 
-  const { layout, palette, colors, labels, hidden, notify, hasEarlyAlert, budget, weekBudget, monthBudget, projectBudgets, isPrivate, quiet, hasPopup, background, handoff } =
+  const { layout, palette, colors, labels, hidden, notify, hasEarlyAlert, budget, weekBudget, monthBudget, projectBudgets, isPrivate, quiet, hasPopup, background, handoff, weight } =
     value as Record<string, unknown>
 
   if (!among(LAYOUTS, layout) || !among(PALETTE_NAMES, palette) || !among(LABEL_SETS, labels)) {
@@ -193,6 +217,8 @@ export const sane = (value: unknown): Style | null => {
     background: isHex(background) ? background : null,
     // A style kept before Hand off had a place has none: Start fresh stands.
     handoff: typeof handoff === 'string' ? handoff.trim() : '',
+    // A style kept before the weight had a place has the sizes; null is off.
+    weight: weight === null ? null : isWeight(weight) ? { warn: weight.warn, full: weight.full } : WEIGHT,
   }
 }
 
@@ -268,6 +294,7 @@ const describe = (style: Style) => {
     style.hasPopup ? null : 'popup off',
     style.background === null ? null : `background ${style.background}`,
     style.handoff === '' ? null : `hand off "${style.handoff}"`,
+    style.weight === null ? 'context weight off' : `context weight ${weightWords(style.weight)}`,
   ]
     .filter(line => line !== null)
     .join(', ')
@@ -437,6 +464,31 @@ export const apply = (style: Style, args: string): Outcome => {
     return text.toLowerCase() === 'off'
       ? { style: { ...style, handoff: '' }, text: 'Hand off: off. Start fresh clears the conversation.' }
       : { style: { ...style, handoff: text }, text: `Hand off: sends "${text}" as your own message.` }
+  }
+
+  // `weight <warn> <full>`: the sizes that colour the context; `off` its share.
+  if (word === 'weight') {
+    const sizes = args.trim().split(/\s+/).slice(1)
+
+    if (sizes.length === 0) {
+      return {
+        text:
+          style.weight === null
+            ? 'Context weight is off: the context is coloured by its share of the window. weight 200k 400k sets sizes.'
+            : `Context weight: yellow from ${shortTokens(style.weight.warn)}, red from ${shortTokens(style.weight.full)}. weight <warn> <full> sets them, weight off colours by share.`,
+      }
+    }
+
+    if (sizes.length === 1 && value === 'off') {
+      return { style: { ...style, weight: null }, text: 'Context weight: off. The context is coloured by its share of the window, from 60% and 85%.' }
+    }
+
+    const [warn, full] = sizes.length === 1 && value === 'on' ? [WEIGHT.warn, WEIGHT.full] : sizes.length === 2 ? sizes.map(size => sizeOf(size)) : []
+    const chosen = { warn, full }
+
+    return isWeight(chosen)
+      ? { style: { ...style, weight: chosen }, text: `Context weight: yellow from ${shortTokens(chosen.warn)}, red from ${shortTokens(chosen.full)}.` }
+      : { text: 'Weight is two sizes, the warning under the full: weight 200k 400k, or weight off.' }
   }
 
   if (word === 'budget' && value === 'project') {

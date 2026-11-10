@@ -1,8 +1,11 @@
 // What a heavy turn's notice says and offers: where its tokens went, why it
 // is heavy, and the choices that fit, the one that fits best first.
 
+import type { Weight } from '../types'
 import { cacheRates, shareOf } from './cache'
+import { shortTokens } from './cost'
 import { freshLabel } from './state'
+import { WEIGHT } from './usage'
 
 export type ChoiceKey = 'stop' | 'keep' | 'agents' | 'compactAfter' | 'raise' | 'compact' | 'fresh' | 'continue' | 'warm' | 'lapse'
 
@@ -60,9 +63,18 @@ const KEEP: Choice = { key: 'keep', label: 'Keep going' }
 // 5-hour window near its limit, subagents doing most of it, a context near
 // full, a cache that had lapsed, or else what most of it was. A cache read's
 // share of the price is the model's (cacheRates), a tenth where none is said.
+// The context is heavy past the warning size, or at 70% of a window smaller
+// than that; with the weight off, at 70% alone.
 export const heavyAdvice = (
   parts: TurnParts,
-  seen: { five: number | null; context: number | null; agentTypes: readonly string[]; read?: number },
+  seen: {
+    five: number | null
+    context: number | null
+    agentTypes: readonly string[]
+    read?: number
+    tokens?: number | null
+    weight?: Weight | null
+  },
 ): { reason: string; tone: 'error' | 'warning' | null; choices: Choice[] } => {
   const total = Math.max(1, totalOf(parts))
   const share = (key: keyof TurnParts) => parts[key] / total
@@ -86,9 +98,18 @@ export const heavyAdvice = (
     }
   }
 
-  if (seen.context !== null && seen.context >= CONTEXT_AT) {
+  const tokens = seen.tokens ?? null
+  const weight = seen.weight === undefined ? WEIGHT : seen.weight
+  const isHeavy = (weight !== null && tokens !== null && tokens >= weight.warn) || (seen.context !== null && seen.context >= CONTEXT_AT)
+
+  if (isHeavy) {
+    const share = seen.context === null ? '' : ` (${Math.round(seen.context)}%)`
+
     return {
-      reason: `The context is at ${Math.round(seen.context)}%: each step reads all of it again.`,
+      reason:
+        tokens === null
+          ? `The context is at ${Math.round(seen.context ?? 0)}%: each step reads all of it again.`
+          : `The context is ${shortTokens(tokens)}${share}: each step reads all of it again.`,
       tone: 'warning',
       choices: [{ key: 'compactAfter', label: 'Compact after' }, STOP, KEEP],
     }

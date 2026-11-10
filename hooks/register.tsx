@@ -252,6 +252,7 @@ export const register: Register = (on, options) => {
       style.hidden.includes('alerts') ? null : style.weekBudget,
       style.hidden.includes('alerts') ? {} : style.projectBudgets,
       style.hidden.includes('alerts') ? null : style.monthBudget,
+      style.weight,
     )
 
     if (!style.hidden.includes('alerts')) {
@@ -400,6 +401,8 @@ export const register: Register = (on, options) => {
         const advice = heavyAdvice(parts, {
           five: seen?.limits.find(({ kind }) => kind.startsWith('five_hour'))?.percentUsed ?? null,
           context: seen?.percent ?? null,
+          tokens: seen?.tokens ?? null,
+          weight: style.weight,
           agentTypes: Object.values(await read($, crew)).map(({ type }) => type),
           read: cacheRates(await read($, cacheModel), null).read,
         })

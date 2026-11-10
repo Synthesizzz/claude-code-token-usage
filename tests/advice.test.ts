@@ -2,6 +2,7 @@ import { expect, test } from 'claude-code/testing'
 
 import { NO_PARTS, addStep, cellsOfSplit, heavyAdvice, splitOf, stoppedAdvice } from '../hooks/advice'
 import { cacheRates } from '../hooks/cache'
+import { WEIGHT } from '../hooks/usage'
 
 // A heavy turn's notice: where the tokens went, why, and the choices that fit.
 
@@ -71,4 +72,20 @@ test('with a handoff set, a stop offers Hand off where it offered Start fresh, u
   expect(stoppedAdvice(72, '1.2M', 'Hand off now').text).toBe('The context is at 72%: Compact keeps a summary and frees it; Hand off sends your hand-off message.')
   // Nothing set: the words are as they were.
   expect(stoppedAdvice(20, '', '')).toEqual(plain)
+})
+
+test('a heavy turn on a context past 200k says compact after, by its size, or at 70% where the size is not known', () => {
+  const plain = addStep(NO_PARTS, step(100, 100, 9000), false)
+  const big = heavyAdvice(plain, { ...none, context: 25, tokens: 250_000, weight: WEIGHT })
+
+  expect(keys(big)).toEqual(['compactAfter', 'stop', 'keep'])
+  expect(big.reason).toBe('The context is 250k (25%): each step reads all of it again.')
+  // Under the warning, and under 70%: not the context.
+  expect(keys(heavyAdvice(plain, { ...none, context: 15, tokens: 150_000, weight: WEIGHT }))).toEqual(['keep', 'stop', 'raise'])
+  // A small window at 72%: its share says it.
+  expect(heavyAdvice(plain, { ...none, context: 72, tokens: 144_000, weight: WEIGHT }).reason).toBe('The context is 144k (72%): each step reads all of it again.')
+  // Weight off: the share alone.
+  expect(keys(heavyAdvice(plain, { ...none, context: 25, tokens: 250_000, weight: null }))).toEqual(['keep', 'stop', 'raise'])
+  // No size known: as before.
+  expect(heavyAdvice(plain, { ...none, context: 84 }).reason).toBe('The context is at 84%: each step reads all of it again.')
 })

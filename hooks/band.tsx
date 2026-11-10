@@ -8,6 +8,7 @@ import { isCrowded } from './alerts'
 import { EMPTY, budgetShare, isPlanOf, today, usd } from './cost'
 import { cacheHints, cachePhase, cacheWord, hasLapsedActions, learnedTtl } from './cache'
 import { contextNews, mixOf } from './context'
+import { shortTokens } from './cost'
 import { CRAB_ROWS, WORK_PX, crabSvg, daysOf, idleSvg, moodOf, napSvg, stageSvg, toneOf } from './crab'
 import { RING_PX, fit, told } from './fit'
 import type { Wish } from './fit'
@@ -16,7 +17,11 @@ import { drawWindows } from './row'
 import { ringSvg } from './svg'
 import {
   barCellsFor,
+  CONTEXT_CELLS,
   cellsOf,
+  contextAlt,
+  contextText,
+  contextTone,
   countdown,
   bandWidth,
   eighths,
@@ -26,7 +31,7 @@ import {
   percentage,
   pie,
   remaining,
-  tone,
+  stepText,
   turnsLeft,
 } from './usage'
 import { note, trouble } from './measure'
@@ -57,6 +62,7 @@ const HINT = 'hint-'
 const HINT_FRESH = `${HINT}fresh`
 const HINT_COMPACT = `${HINT}compact`
 const HINT_CACHE = `${HINT}cache`
+const HINT_CONTEXT = `${HINT}context`
 
 // Not `snapshot`: a session reloaded from 0.1.0 still holds that key in its old shape.
 const snapshot = atom({ plugin: 'token-usage', key: 'usage' } as const, null)
@@ -91,6 +97,9 @@ const pauses = atom({ plugin: 'token-usage', key: 'pauses' } as const, [])
 
 // What fills the context, as /context breaks it down.
 const breakdown = atom({ plugin: 'token-usage', key: 'breakdown' } as const, null)
+
+// The model of the last main-thread step: what a step's re-read is priced at.
+const cacheModel = atom({ plugin: 'token-usage', key: 'cacheModel' } as const, null)
 
 // The bar of what fills the context, in cells: the terminal's after CTX, the
 // desktop's under the ring.
@@ -138,7 +147,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
     // A large context whose cache has lapsed: the next turn re-reads all of
     // it, so the band offers to start fresh or compact first.
     const isLapsed = hasLapsedActions(cachePart, idleTokens)
-    const hasCompact = isCrowded(percent) || isSoon || isLapsed
+    const hasCompact = isCrowded(usage.tokens, percent, style.weight) || isSoon || isLapsed
     // Start fresh, or Hand off where the person set a message for it.
     const startLabel = freshLabel(style.handoff)
     const compactPress = (
@@ -212,7 +221,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
     // opens the pane of it.
     const filled = style.hidden.includes('breakdown') ? null : await read($, breakdown)
     const held = filled === null ? null : saneBreakdown(filled.value)
-    const news = held === null ? null : contextNews(held.categories, held.rawMaxTokens, isCrowded(percent))
+    const news = held === null ? null : contextNews(held.categories, held.rawMaxTokens, isCrowded(usage.tokens, percent, style.weight))
     const mix = (cells: number, glyph: string) =>
       held === null || !hasContext
         ? null
@@ -230,8 +239,14 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
         <Text color={news.tone}>{news.text}</Text>
       </Button>
     )
+    // The context by its weight: its size, coloured from the sizes set, and
+    // on the desktop what each step reads again at the model's price.
+    const { tokens } = usage
+    const sized = contextText(tokens, percent)
+    const perStep = stepText(tokens, await read($, cacheModel))
+    const weighed = contextTone(tokens, percent, style.weight)
     const glyph = percent === null ? '○' : pie(percent)
-    const color = percent === null ? 'inactive' : tone(percent)
+    const color = percent === null && tokens === null ? 'inactive' : weighed
     let fill = <Text color={color}>{glyph}</Text>
 
     // Only the terminal spins a glyph in a client region; elsewhere it rests.
@@ -287,8 +302,9 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
         layout: style.layout,
         context: hasContext
           ? {
-              used: percentage(percent).trim(),
+              used: sized,
               word: wished.context,
+              step: perStep === null ? null : `· ${perStep}`,
               figure: isAtWork ? WORK_PX.width : isAsleep || isIdle ? napped.width : RING_PX,
             }
           : null,
@@ -308,7 +324,10 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
       const fitted = fit(wish, e.props.bodyColumns)
       const isSnug = fitted.layout !== style.layout
       const named = isSnug ? snug : wished
-      const ringed = ringSvg(percent, named.context, e.props.isWorking, palette)
+      const ringed = ringSvg(percent, named.context, e.props.isWorking, palette, {
+        tone: weighed,
+        alt: contextAlt(named.context, tokens, percent, usage.window),
+      })
       const asleep = napSvg(`${ringed.alt}, Crab asleep`, palette)
       const idle = idleSvg(`${ringed.alt}, Crab standing by`, palette)
       const context = isAtWork
@@ -368,6 +387,16 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
       // What a choice or the cache's word does and costs, each hidden until the
       // pointer rests on it. They open at the band's top: the band grows up
       // from the prompt, so what the pointer rests on stays where it is.
+      // The share the size took the place of, and what the colour means,
+      // under the pointer on the size.
+      const hasSizeHint = hasContext && tokens !== null
+      const sizeLabel = `Context ${sized} of ${shortTokens(usage.window)}${percent === null ? '' : ` (${Math.round(percent)}%)`}`
+      const sizeHint = [
+        `Each step reads all of it again from the cache${perStep === null ? '' : `: about ${perStep.replace('/step', '')} tokens at the full price, a step`}.`,
+        style.weight === null
+          ? 'Coloured by its share of the window, from 60% and 85%: /tokens weight 200k 400k colours it by its size.'
+          : `Yellow from ${shortTokens(style.weight.warn)}, red from ${shortTokens(style.weight.full)}: /tokens weight sets the sizes.`,
+      ].join(' ')
       const hints = cacheHints(idleTokens, { ...(await pricing($, ttl, paused?.usd ?? null)), handoff: style.handoff })
       const hinted = [
         ...(isStaying
@@ -386,6 +415,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
                 ? { scope: HINT_CACHE, label: 'The cache has lapsed', hint: hints.gone }
                 : { scope: HINT_CACHE, label: 'Why a big context costs', hint: hints.why },
             ]),
+        ...(hasSizeHint ? [{ scope: HINT_CONTEXT, label: sizeLabel, hint: sizeHint }] : []),
       ]
 
       // The row is fitted by estimate, so two guards stay: no group gives up
@@ -442,8 +472,11 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
               <Box flexDirection="column" flexShrink={0}>
                 <Box gap={1} alignItems="center">
                   {figure(context.drawn, context.width, context.height)}
-                  <Text weight="semibold">{percentage(percent).trim()}</Text>
+                  <Text weight="semibold" {...(hasSizeHint ? { hover: { scope: HINT_CONTEXT, underline: true } } : {})}>
+                    {sized}
+                  </Text>
                   {fitted.hasContextWord && <Text dimColor>{named.context}</Text>}
+                  {fitted.hasStep && wish.context?.step != null && <Text dimColor>{wish.context.step}</Text>}
                 </Box>
                 {fitted.hasContextWord && held !== null && <Box>{mix(DESKTOP_CELLS, '▬')}</Box>}
               </Box>
@@ -594,7 +627,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
               {fill}
               <Text dimColor>CTX</Text>
               {barCells > 0 && <Box>{barOf(percent, null, color)}</Box>}
-              <Text {...(barCells > 0 ? { weight: 'semibold' as const } : {})}>{barCells > 0 ? percentage(percent).trim() : percentage(percent)}</Text>
+              <Text {...(barCells > 0 ? { weight: 'semibold' as const } : {})}>{barCells > 0 ? sized : sized.padStart(CONTEXT_CELLS)}</Text>
               {!hasSecondRow && hasMix && <Box>{mix(TERMINAL_CELLS, '▆')}</Box>}
             </Box>
           )}

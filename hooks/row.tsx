@@ -6,7 +6,7 @@ import type { Layout, Motion, Palette, Snapshot, Style } from '../types'
 import { BAR_PX, DOT_PX, PACE_PX, RING_PX, WIDE_BAR_PX, stackFor } from './fit'
 import { paletteFor, words } from './style'
 import { barSvg, dotSvg, paceSvg, ringSvg } from './svg'
-import { cellsOf, countdown, elapsed, percentage, remaining } from './usage'
+import { cellsOf, contextAlt, contextText, contextTone, countdown, elapsed, percentage, remaining } from './usage'
 
 type Drawing = Pick<Elements['desktop'], 'Box' | 'Text' | 'Svg'>
 
@@ -104,7 +104,10 @@ export const lookRow = (drawing: Drawing, usage: Snapshot, at: number, style: St
   const { Box, Text, Svg } = drawing
   const palette = paletteFor(style)
   const named = words(style)
-  const ring = ringSvg(usage.percent, named.context, false, palette)
+  const ring = ringSvg(usage.percent, named.context, false, palette, {
+    tone: contextTone(usage.tokens, usage.percent, style.weight),
+    alt: contextAlt(named.context, usage.tokens, usage.percent, usage.window),
+  })
   const windows = usage.limits.map(limit => {
     const left = remaining(limit, at)
 
@@ -125,7 +128,7 @@ export const lookRow = (drawing: Drawing, usage: Snapshot, at: number, style: St
       {!style.hidden.includes('context') && (
         <Box gap={1} alignItems="center" flexShrink={0}>
           <Svg source={ring.source} alt={ring.alt} width={RING_PX} height={RING_PX} />
-          <Text weight="semibold">{percentage(usage.percent).trim()}</Text>
+          <Text weight="semibold">{contextText(usage.tokens, usage.percent)}</Text>
           <Text dimColor>{named.context}</Text>
         </Box>
       )}

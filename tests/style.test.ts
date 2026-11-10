@@ -103,6 +103,7 @@ test('the defaults are the double rings in the classic colours, everything shown
     hasPopup: true,
     background: null,
     handoff: '',
+    weight: { warn: 200_000, full: 400_000 },
   })
 })
 
@@ -349,7 +350,7 @@ test('the tokens command switches the desktop band and keeps the choice in the s
   const drawn = await ui.findAll({ type: 'Svg' })
 
   expect(drawn.map(svg => svg.props.alt)).toEqual([
-    'context 42%, Crab standing by',
+    'context 84.0k, 42% of the 200k window, Crab standing by',
     '5h 31% used, 55% of the window gone',
     'Week 90% used',
   ])
@@ -367,7 +368,7 @@ test('a style kept in the store is the one a new session draws', async ($, on) =
   const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...BAND })
   const drawn = await ui.findAll({ type: 'Svg' })
 
-  expect(drawn.map(svg => svg.props.alt)).toEqual(['CTX 42%, Crab standing by', '5H 31% used', '7D 90% used'])
+  expect(drawn.map(svg => svg.props.alt)).toEqual(['CTX 84.0k, 42% of the 200k window, Crab standing by', '5H 31% used', '7D 90% used'])
   // 31% is the calm level: the ocean palette's first colour, as a dot.
   expect(String(drawn[1]?.props.source)).toContain('#1d8fc4')
   expect(String(drawn[1]?.props.source)).toContain('width="8"')
@@ -384,7 +385,7 @@ test('frames draws each window in a bordered box with its own ring', async ($, o
 
   expect(boxes.filter(box => box.props.borderStyle === 'round')).toHaveLength(2)
   expect((await ui.findAll({ type: 'Svg' })).map(svg => svg.props.alt)).toEqual([
-    'context 42%, Crab standing by',
+    'context 84.0k, 42% of the 200k window, Crab standing by',
     '5-hour 31%',
     'Weekly 90%',
   ])
@@ -417,7 +418,7 @@ test('a part switched off is not drawn, on any surface', async ($, on) => {
     const ui = await $.ui.mount({ plugin: PLUGIN, surface, ...BAND })
     expect(await ui.find({ type: 'Text', text: '$0.00 API today' })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: '2h14m' })).toBeUndefined()
-    expect(await ui.find({ type: 'Text', text: '42%' })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: '84.0k' })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: '31%' })).toBeDefined()
   }
 })
@@ -480,7 +481,7 @@ test('the picker draws the look in force as the band does, and each other look u
 
   expect(await picker.find({ type: 'Text', text: 'Look: rings · classic, the classic preset' })).toBeDefined()
   expect((await picker.findAll({ type: 'Svg' })).slice(0, 3).map(({ props }) => props.alt)).toEqual([
-    'context 42%',
+    'context 84.0k, 42% of the 200k window',
     '5-hour 31% used, 55% of the window gone',
     'Weekly 90% used',
   ])
@@ -983,4 +984,53 @@ test('a handoff is kept with the style, a style from before it had a place has n
   expect(apply(BASE, 'help')).toMatchObject({ text: expect.stringContaining('handoff <text|off>') })
   // A reset puts Start fresh back.
   expect(apply({ ...BASE, handoff: 'Hand off now' }, 'reset')).toEqual({ reset: true, text: 'Style reset to the defaults.' })
+})
+
+test('weight sets the sizes that colour the context, in k or in tokens; off colours it by its share', () => {
+  expect(apply(BASE, 'weight 200k 400k')).toEqual({
+    style: { ...BASE, weight: { warn: 200_000, full: 400_000 } },
+    text: 'Context weight: yellow from 200k, red from 400k.',
+  })
+  expect(apply(BASE, 'weight 250000 500000')).toMatchObject({ style: { weight: { warn: 250_000, full: 500_000 } } })
+  expect(apply(BASE, 'weight 1.5m 3M')).toMatchObject({ style: { weight: { warn: 1_500_000, full: 3_000_000 } } })
+  expect(apply(BASE, 'weight off')).toEqual({
+    style: { ...BASE, weight: null },
+    text: 'Context weight: off. The context is coloured by its share of the window, from 60% and 85%.',
+  })
+  // `on` puts the sizes back; the word alone says what is set.
+  expect(apply({ ...BASE, weight: null }, 'weight on')).toMatchObject({ style: { weight: { warn: 200_000, full: 400_000 } } })
+  expect(apply(BASE, 'weight')).toEqual({ text: 'Context weight: yellow from 200k, red from 400k. weight <warn> <full> sets them, weight off colours by share.' })
+  expect(apply({ ...BASE, weight: null }, 'weight')).toEqual({ text: 'Context weight is off: the context is coloured by its share of the window. weight 200k 400k sets sizes.' })
+
+  // A size that is not one, or a warning not under the full: said, nothing changed.
+  const wrong = 'Weight is two sizes, the warning under the full: weight 200k 400k, or weight off.'
+
+  for (const words of ['weight 400k 200k', 'weight 300k 300k', 'weight abc 400k', 'weight 200k', 'weight 0 400k', 'weight -5 400k', 'weight 200k 400k 600k']) {
+    expect(apply(BASE, words)).toEqual({ text: wrong })
+  }
+})
+
+test('a weight is kept with the style, a style from before it had a place has the sizes, and list names it', () => {
+  expect(sane({ ...BASE, weight: { warn: 250_000, full: 500_000 } })?.weight).toEqual({ warn: 250_000, full: 500_000 })
+  expect(sane({ ...BASE, weight: null })?.weight).toBeNull()
+
+  const { weight: _unset, ...before } = BASE
+
+  expect(sane(before)?.weight).toEqual({ warn: 200_000, full: 400_000 })
+  // A pair kept wrong is not kept: the sizes stand.
+  expect(sane({ ...BASE, weight: { warn: 500_000, full: 400_000 } })?.weight).toEqual({ warn: 200_000, full: 400_000 })
+  expect(sane({ ...BASE, weight: { warn: 'x', full: 400_000 } })?.weight).toEqual({ warn: 200_000, full: 400_000 })
+
+  expect((apply(BASE, 'list') as { text: string }).text).toContain('context weight 200k 400k')
+  expect((apply({ ...BASE, weight: null }, 'list') as { text: string }).text).toContain('context weight off')
+  expect(apply(BASE, 'help')).toMatchObject({ text: expect.stringContaining('weight <warn> <full>|off') })
+})
+
+test('reset puts the weight back to 200k and 400k', async ($, on) => {
+  const kept = world(on)
+  await $.session.measure(MEASURE)
+  await $.command.run({ ...TYPED, command: 'tokens', args: 'weight 300k 600k' })
+  expect(kept.get('style')).toMatchObject({ weight: { warn: 300_000, full: 600_000 } })
+  await $.command.run({ ...TYPED, command: 'tokens', args: 'reset' })
+  expect((await $.command.run({ ...TYPED, command: 'tokens', args: 'list' })).text).toContain('context weight 200k 400k')
 })

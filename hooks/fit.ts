@@ -41,8 +41,9 @@ const BUTTON = 3
 export type Wish = {
   layout: Layout
   // null while the context is switched off. `figure` is the width in pixels
-  // of what is drawn for it, where that is not the ring.
-  context: { used: string; word: string; figure?: number } | null
+  // of what is drawn for it, where that is not the ring. `step` is what each
+  // step reads again, drawn after the word; null where no model is known.
+  context: { used: string; word: string; step?: string | null; figure?: number } | null
   // `brief` is the name the tight layout draws when the wished one is too wide.
   windows: readonly { name: string; brief: string; used: string; clock: string | null }[]
   usedWord: string
@@ -61,6 +62,9 @@ export type Wish = {
 export type Fitted = {
   layout: Layout
   hasContextWord: boolean
+  // What each step reads again, after the context word: the first to go.
+  // Absent is not drawn.
+  hasStep?: boolean
   // The words beside the figures: a window's name where its figure tells it
   // apart already, "left", "used".
   hasWords: boolean
@@ -179,6 +183,7 @@ export const widthOf = (wish: Wish, fitted: Fitted) => {
             figure(wish.context.figure ?? RING_PX),
             bold(wish.context.used),
             ...(fitted.hasContextWord ? [plain(wish.context.word)] : []),
+            ...(fitted.hasStep && wish.context.step != null ? [plain(wish.context.step)] : []),
           ]),
         ]),
     ...(wish.action === null ? [] : [BUTTON + bold(wish.action)]),
@@ -214,6 +219,9 @@ const steps = (wish: Wish): Fitted[] => {
     hasEta: true,
     hasCost: true,
   }
+  // The price per step, where there is one, goes first, before anything else
+  // gives way.
+  const stepped: Fitted[] = wish.context?.step == null ? [] : [{ ...full, hasStep: true }]
   const lean: Fitted = { ...full, hasCost: false, hasEta: false, hasContextWord: false }
   const tight: Fitted = { ...lean, layout: 'compact' }
   const bare: Fitted = { ...tight, hasWords: false, hasClock: false }
@@ -221,6 +229,7 @@ const steps = (wish: Wish): Fitted[] => {
   // The forecast is the one warning in the row: it outlasts the cost and the
   // word beside the context.
   return [
+    ...stepped,
     full,
     { ...full, hasCost: false },
     { ...full, hasCost: false, hasContextWord: false },
@@ -250,6 +259,7 @@ export const told = (wish: Wish, fitted: Fitted, columns: number) => {
   const gone = wish.windows.length - fitted.windows
   const hasClocks = wish.windows.some(window => window.clock !== null)
   const left = [
+    wish.context?.step != null && !fitted.hasStep ? 'the price per step' : null,
     wish.cost !== null && !fitted.hasCost ? 'cost' : null,
     wish.context !== null && !fitted.hasContextWord ? 'the context word' : null,
     wish.eta !== null && !fitted.hasEta ? 'forecast' : null,

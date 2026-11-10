@@ -4,9 +4,9 @@ import { atom, read } from 'claude-code'
 import type { MatchedHook, RenderChildren } from 'claude-code'
 import { counted, dayOf, shortTokens, total } from './cost'
 import { appOf, glyphOf, kindsOf, servers, shortPath, trendLine } from './context'
-import { tone } from './usage'
+import { contextTone } from './usage'
 import { countContext } from './ledger'
-import { BESIDE_COLUMNS, SQUARE_CELLS, saneBreakdown } from './state'
+import { BESIDE_COLUMNS, SQUARE_CELLS, saneBreakdown, scope, styleOf } from './state'
 
 // What fills the context, as /context breaks it down.
 const breakdown = atom({ plugin: 'token-usage', key: 'breakdown' } as const, null)
@@ -26,6 +26,8 @@ export async function drawContextPane($: Parameters<DrawContextPaneHook>[0], e: 
     }
 
     const kinds = kindsOf(value.categories)
+    // Coloured as the band colours it: by its size.
+    const { weight } = await styleOf($, scope.base)
     const kindOf = new Map(value.categories.map(({ name, kind }) => [name, kind]))
     const trend = trendLine(await read($, setUps), dayOf(held.at))
     const home = await $.env.get('USERPROFILE').catch(() => undefined) ?? (await $.env.get('HOME').catch(() => undefined))
@@ -95,7 +97,7 @@ export async function drawContextPane($: Parameters<DrawContextPaneHook>[0], e: 
             <Text weight="semibold">Context</Text>
             <Text dimColor>{`${shortTokens(value.totalTokens)} / ${shortTokens(value.rawMaxTokens)}`}</Text>
           </Box>
-          <Text color={tone(value.percentage)} weight="semibold">{`${Math.round(value.percentage)}%`}</Text>
+          <Text color={contextTone(value.totalTokens, value.percentage, weight)} weight="semibold">{`${Math.round(value.percentage)}%`}</Text>
         </Box>
         {trend !== null && (
           <Text dimColor wrap="wrap">

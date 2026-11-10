@@ -1,4 +1,6 @@
-import type { Band, Limit, Quiet, RingCell, Sample, Snapshot } from '../types'
+import type { Band, Limit, Quiet, RingCell, Sample, Snapshot, Weight } from '../types'
+import { cacheRates } from './cache'
+import { shortTokens } from './cost'
 
 // What a measurement says, read with care: the hook API is early access and
 // what Claude Code hands a mod changes between releases. What is not in the
@@ -263,6 +265,48 @@ export const ring = (percent: number | null): RingCell[][] => {
 export const tone = (percent: number) =>
   percent >= FULL_AT ? 'error' : percent >= WARN_AT ? 'warning' : 'success'
 
+// The context's weight: each step reads all of it again, so 400k costs the
+// same on a 1M window as on any other. Yellow from 200k, red from 400k,
+// unless the person set sizes of their own.
+export const WEIGHT: Weight = { warn: 200_000, full: 400_000 }
+
+const GRAVER = ['success', 'warning', 'error'] as const
+
+// The context's colour: the graver of its size and its share of the window,
+// so a window smaller than the sizes still turns at 60% and 85%. A size not
+// known yet, or the weight off, leaves the share alone.
+export const contextTone = (tokens: number | null, percent: number | null, weight: Weight | null) => {
+  const share = tone(percent ?? 0)
+
+  if (weight === null || tokens === null) {
+    return share
+  }
+
+  const size = tokens >= weight.full ? 'error' : tokens >= weight.warn ? 'warning' : 'success'
+
+  return GRAVER[Math.max(GRAVER.indexOf(size), GRAVER.indexOf(share))] ?? share
+}
+
+// The context as the band says it: its size, or its share while the size is
+// not known.
+export const contextText = (tokens: number | null, percent: number | null) =>
+  tokens === null ? percentage(percent).trim() : shortTokens(tokens)
+
+// What each step reads again from the cache, in tokens at the full price:
+// the context at the model's cache rate. None before a model is seen.
+export const stepText = (tokens: number | null, model: string | null) =>
+  tokens === null || model === null ? null : `${shortTokens(tokens * cacheRates(model, null).read)}/step`
+
+// The ring's words: the size, and the share of the window it was drawn by.
+export const contextAlt = (name: string, tokens: number | null, percent: number | null, window: number) =>
+  tokens === null
+    ? `${name} ${percent === null ? 'unknown' : `${Math.round(percent)}%`}`
+    : `${name} ${shortTokens(tokens)}${percent === null ? '' : `, ${Math.round(percent)}% of the ${shortTokens(window)} window`}`
+
+// A terminal holds the context's words at one width, a size or a share, so
+// a reading never shifts the row: 99.9k is the widest.
+export const CONTEXT_CELLS = 5
+
 export const short = (kind: string) =>
   kind === 'five_hour' ? '5h' : kind === 'seven_day' ? '7d' : kind
 
@@ -348,7 +392,7 @@ export const bandWidth = (band: Band) => width(band)
 
 const width = ({ limits, eta, cost }: Band) =>
   [
-    1 + 1 + 3 + 1 + 4,
+    1 + 1 + 3 + 1 + CONTEXT_CELLS,
     ...limits.map(
       ({ label, left }) =>
         1 + 1 + label.length + 1 + 4 + (left === null ? 0 : 1 + left.length),

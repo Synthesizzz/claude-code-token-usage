@@ -129,7 +129,7 @@ test('windows in a shape it does not know: the band draws the rest and says what
     const ui = await $.ui.mount({ plugin: PLUGIN, surface, ...BAND })
     const drawn = await texts(ui)
 
-    expect(drawn.some(text => text.includes('42%'))).toBe(true)
+    expect(drawn.some(text => text.includes('84.0k'))).toBe(true)
     expect(drawn).toContain(UNREAD('rateLimits'))
     expect(drawn).toContain('beneath')
     expect(drawn.some(text => text.includes('NaN'))).toBe(false)
@@ -164,7 +164,7 @@ test('a context and a cost it cannot read keep what was shown', async ($, on) =>
   const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...BAND })
   const drawn = await texts(ui)
 
-  expect(drawn.some(text => text.includes('42%'))).toBe(true)
+  expect(drawn.some(text => text.includes('84.0k'))).toBe(true)
   expect(drawn.some(text => text.includes('NaN'))).toBe(false)
   expect(drawn).toContain(UNREAD('context, cost'))
 })

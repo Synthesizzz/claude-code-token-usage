@@ -902,7 +902,7 @@ test('a budget puts its ring before the cost, and the crab says when it is nearl
   expect(toasts).toEqual(["Today's API worth at 81% of $10.00, $1.90 left"])
   expect(await alts()).toEqual([
     "Crab: Today's API worth at 81% of $10.00",
-    'context 42%',
+    'context 84.0k, 42% of the 200k window',
     '5-hour 31% used',
     "Today's budget 81%",
   ])
@@ -925,7 +925,7 @@ test('with no budget the cost stands alone in the band', async ($, on) => {
   const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...BAND })
 
   expect((await ui.findAll({ type: 'Svg' })).map(({ props }) => props.alt)).toEqual([
-    'context 42%, Crab standing by',
+    'context 84.0k, 42% of the 200k window, Crab standing by',
     '5-hour 31% used',
   ])
 })

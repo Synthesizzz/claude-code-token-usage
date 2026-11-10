@@ -1,4 +1,4 @@
-import type { Motion, Palette } from '../types'
+import type { Motion, Palette, Tone } from '../types'
 import { tone } from './usage'
 
 // The vector figures of the surfaces that draw one: the context ring, with a
@@ -83,14 +83,17 @@ const svg = (width: number, height: number, body: string) =>
 const spent = (name: string, used: number, gone: number | null) =>
   `${name} ${Math.round(used)}% used${gone === null ? '' : `, ${Math.round(gone)}% of the window gone`}`
 
+// The context's ring is coloured by its weight and says its size: `said`
+// carries both. Another ring (a budget) goes by its share.
 export const ringSvg = (
   percent: number | null,
   name: string,
   isWorking: boolean,
   palette: Palette = DEFAULTS,
+  said: { tone?: Tone; alt?: string } = {},
 ) => {
   const center = BOX / 2
-  const color = palette[tone(percent ?? 0)]
+  const color = palette[said.tone ?? tone(percent ?? 0)]
   const orbit = isWorking
     ? [
         `<style>.o{transform-origin:${center}px ${center}px;animation:o ${ORBIT_MS}ms linear infinite}`,
@@ -106,7 +109,7 @@ export const ringSvg = (
       BOX,
       `${track(center, RADIUS, STROKE)}${arc(center, RADIUS, STROKE, percent, color)}${orbit}`,
     ),
-    alt: `${name} ${percent === null ? 'unknown' : `${Math.round(percent)}%`}`,
+    alt: said.alt ?? `${name} ${percent === null ? 'unknown' : `${Math.round(percent)}%`}`,
   }
 }
 
