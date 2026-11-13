@@ -16,9 +16,18 @@ export const callOf = ($: { tool: { call: unknown } }) => $.tool.call as (input:
 // names none hears the test's own row: drawn there, it stacks as a second row
 // after the band instead of beneath it. So the stand-in names the mod, and on
 // the test's own row it passes.
+//
+// The declarations up to 2.1.322 know neither `e.plugin` nor a `plugin` key
+// in the band's matcher, so both stay out of the static types: the name is
+// read off any object, and the matcher carries the key at run time under the
+// type of the plain one. An engine without per-plugin rows never fires it.
+const pluginOf = (e: object) => ('plugin' in e ? e.plugin : undefined)
+const BAND_ROW = { component: 'AbovePrompt' } as const
+const MOD_ROW: typeof BAND_ROW = Object.assign({ plugin: 'token-usage' }, BAND_ROW)
+
 export const beneathBand = (on: On, children = '') => {
-  on('ui.render', { component: 'AbovePrompt' }, (beneath, e, next) =>
-    e.plugin === undefined ? beneath.ui.resolve(e).Text({ children }) : next(e),
+  on('ui.render', BAND_ROW, (beneath, e, next) =>
+    pluginOf(e) === undefined ? beneath.ui.resolve(e).Text({ children }) : next(e),
   )
-  on('ui.render', { component: 'AbovePrompt', plugin: 'token-usage' }, (beneath, e) => beneath.ui.resolve(e).Text({ children }))
+  on('ui.render', MOD_ROW, (beneath, e) => beneath.ui.resolve(e).Text({ children }))
 }

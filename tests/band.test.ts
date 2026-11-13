@@ -11,7 +11,7 @@ const SITE = { scroll: { offset: 0, bodyRows: 10 }, view: {} }
 const band = (bodyColumns: number, isWorking = false) =>
   ({
     component: 'AbovePrompt',
-    props: { hasSurvey: false, isWorking, maxRows: 10, bodyColumns, ...SITE },
+    props: { hasSurvey: false, isCollapsed: false, isWorking, maxRows: 10, bodyColumns, ...SITE },
   }) as const
 const PANE = {
   component: 'Pane',

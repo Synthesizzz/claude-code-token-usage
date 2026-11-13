@@ -12,7 +12,7 @@ const HOUR = 60 * MINUTE
 const SITE = { scroll: { offset: 0, bodyRows: 10 }, view: {} }
 const BAND = {
   component: 'AbovePrompt',
-  props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 80, ...SITE },
+  props: { hasSurvey: false, isCollapsed: false, isWorking: false, maxRows: 10, bodyColumns: 80, ...SITE },
 } as const
 const reading = (fiveHour: number, left: number) => ({
   context: { window: 200000, tokens: 84000, percent: 42 },

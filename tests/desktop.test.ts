@@ -12,7 +12,7 @@ const SITE = { scroll: { offset: 0, bodyRows: 10 }, view: {} }
 const band = (isWorking: boolean) =>
   ({
     component: 'AbovePrompt',
-    props: { hasSurvey: false, isWorking, maxRows: 10, bodyColumns: 80, ...SITE },
+    props: { hasSurvey: false, isCollapsed: false, isWorking, maxRows: 10, bodyColumns: 80, ...SITE },
   }) as const
 const MEASURE = {
   context: { window: 200000, tokens: 84000, percent: 42 },

@@ -11,7 +11,7 @@ const SITE = { scroll: { offset: 0, bodyRows: 10 }, view: {} }
 const band = (bodyColumns: number) =>
   ({
     component: 'AbovePrompt',
-    props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns, ...SITE },
+    props: { hasSurvey: false, isCollapsed: false, isWorking: false, maxRows: 10, bodyColumns, ...SITE },
   }) as const
 const MODEL = 'claude-opus-5-5'
 const usage = { model: MODEL, input_tokens: 100, output_tokens: 100, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }

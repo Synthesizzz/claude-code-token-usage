@@ -17,7 +17,7 @@ const SITE = { scroll: { offset: 0, bodyRows: 10 }, view: {} }
 const band = (isWorking = false, maxRows = 10) =>
   ({
     component: 'AbovePrompt',
-    props: { hasSurvey: false, isWorking, maxRows, bodyColumns: 120, ...SITE },
+    props: { hasSurvey: false, isCollapsed: false, isWorking, maxRows, bodyColumns: 120, ...SITE },
   }) as const
 const reading = (fiveHour: number) => ({
   context: { window: 200000, tokens: 84000, percent: 42 },

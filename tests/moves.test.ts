@@ -13,7 +13,7 @@ const SITE = { scroll: { offset: 0, bodyRows: 10 }, view: {} }
 const band = (isWorking = false, bodyColumns = 160) =>
   ({
     component: 'AbovePrompt',
-    props: { hasSurvey: false, isWorking, maxRows: 10, bodyColumns, ...SITE },
+    props: { hasSurvey: false, isCollapsed: false, isWorking, maxRows: 10, bodyColumns, ...SITE },
   }) as const
 const usage = { model: MODEL, input_tokens: 100, output_tokens: 100, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }
 const sized = (tokens: number) => ({

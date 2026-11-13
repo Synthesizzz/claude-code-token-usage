@@ -13,7 +13,7 @@ const PLUGIN = 'token-usage'
 const SITE = { scroll: { offset: 0, bodyRows: 10 }, view: {} }
 const BAND = {
   component: 'AbovePrompt',
-  props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 140, ...SITE },
+  props: { hasSurvey: false, isCollapsed: false, isWorking: false, maxRows: 10, bodyColumns: 140, ...SITE },
 } as const
 const PANE = {
   component: 'Pane',

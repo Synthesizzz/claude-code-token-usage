@@ -76,7 +76,7 @@ for (const scene of ['calm', 'near', 'calm thai', 'calm caps', 'near long', 'hea
           plugin: 'token-usage',
           surface: 'desktop',
           component: 'AbovePrompt',
-          props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: columns, ...SITE },
+          props: { hasSurvey: false, isCollapsed: false, isWorking: false, maxRows: 10, bodyColumns: columns, ...SITE },
         })
         const [root] = await ui.findAll({ type: 'Box' })
 

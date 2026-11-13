@@ -242,7 +242,7 @@ const world = (on: On) => {
 }
 const BAND = {
   component: 'AbovePrompt',
-  props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 160, scroll: { offset: 0, bodyRows: 10 }, view: {} },
+  props: { hasSurvey: false, isCollapsed: false, isWorking: false, maxRows: 10, bodyColumns: 160, scroll: { offset: 0, bodyRows: 10 }, view: {} },
 } as const
 const texts = async (ui: { findAll: (query: { type: 'Text' }) => Promise<readonly { text: string; props: Record<string, unknown> }[]> }) =>
   await ui.findAll({ type: 'Text' })
