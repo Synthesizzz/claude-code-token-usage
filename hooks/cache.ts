@@ -113,6 +113,45 @@ const clock = (ms: number) => {
   return seconds >= 60 ? `${Math.floor(seconds / 60)}m${String(seconds % 60).padStart(2, '0')}s` : `${seconds}s`
 }
 
+// The band's countdown, as mm:ss: in whole minutes while there is time, so it
+// changes once a minute, and by the second in the last two. Rounded up, so
+// it reads the time it shows at the moment it changes.
+export const cacheClock = (left: number) => {
+  const seconds = left > NEAR_MS ? Math.ceil(left / MINUTE_MS) * 60 : Math.max(0, Math.ceil(left / 1000))
+
+  return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
+}
+
+// How long until the band's countdown next changes, for a pause begun at
+// `began`: its word first shows once the quiet after a turn is over; then
+// each whole minute left, and each second in the last two; then the lapse.
+// Null once it has lapsed: nothing more changes.
+export const nextChange = (now: number, began: number, ttl: number) => {
+  const idle = now - began
+
+  if (idle < QUIET_MS) {
+    return QUIET_MS - idle
+  }
+
+  const left = ttl - idle
+
+  if (left <= 0) {
+    return null
+  }
+
+  const step = left > NEAR_MS ? MINUTE_MS : 1000
+
+  return left % step || step
+}
+
+// The cache's time left as a bar of cells, the full ones first: at least one
+// while any time is left.
+export const cacheCells = (left: number, ttl: number, cells: number) => {
+  const full = left <= 0 ? 0 : Math.min(cells, Math.max(1, Math.round((left / ttl) * cells)))
+
+  return { full, empty: cells - full }
+}
+
 export const cacheWord = (said: { phase: 'calm' | 'near' | 'gone'; left: number }, context: number | null) =>
   said.phase === 'gone'
     ? `cache lapsed${context === null ? '' : ` · next turn re-reads ${shortTokens(context)}`}`

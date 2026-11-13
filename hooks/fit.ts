@@ -32,6 +32,11 @@ export const PACE_PX = 34
 export const BAR_PX = 80
 export const WIDE_BAR_PX = 160
 export const DOT_PX = 8
+// The cache's countdown: its clock, and its bar at full width and as narrow as
+// it is still worth drawing.
+export const CLOCK_PX = 14
+export const CACHE_BAR_PX = 72
+export const CACHE_BAR_MIN_PX = 28
 // A frame's border and padding, both sides; the stack's column of names; a
 // button's padding, both sides.
 const FRAME = 4
@@ -57,6 +62,9 @@ export type Wish = {
   // A word drawn last, after a figure this wide in pixels; it goes with the
   // cost.
   note?: { text: string; figure: number }
+  // The cache's countdown while it holds: its clock, its words, a bar this
+  // wide in pixels, and its button. Never given up: the bar narrows, then goes.
+  cache?: { text: string; bar: number; button: string | null }
 }
 
 export type Fitted = {
@@ -72,6 +80,8 @@ export type Fitted = {
   windows: number
   hasEta: boolean
   hasCost: boolean
+  // The width in pixels the cache's bar is drawn at; 0 or absent is not drawn.
+  cacheBar?: number
 }
 
 const figure = (px: number) => px / CELL_PX
@@ -201,6 +211,16 @@ export const widthOf = (wish: Wish, fitted: Fitted) => {
     ...(fitted.hasCost && wish.note !== undefined
       ? [row([figure(wish.note.figure), plain(wish.note.text)])]
       : []),
+    ...(wish.cache === undefined
+      ? []
+      : [
+          row([
+            figure(CLOCK_PX),
+            plain(wish.cache.text),
+            ...((fitted.cacheBar ?? 0) > 0 ? [figure(fitted.cacheBar ?? 0)] : []),
+            ...(wish.cache.button === null ? [] : [BUTTON + bold(wish.cache.button)]),
+          ]),
+        ]),
   ]
 
   return groups.reduce((sum, group) => sum + group, 0) + GROUP_GAP * Math.max(0, groups.length - 1)
@@ -228,9 +248,7 @@ const steps = (wish: Wish): Fitted[] => {
 
   // The forecast is the one warning in the row: it outlasts the cost and the
   // word beside the context.
-  return [
-    ...stepped,
-    full,
+  const giving: Fitted[] = [
     { ...full, hasCost: false },
     { ...full, hasCost: false, hasContextWord: false },
     lean,
@@ -238,11 +256,24 @@ const steps = (wish: Wish): Fitted[] => {
     tight,
     { ...tight, hasWords: false },
     bare,
-    ...wish.windows.map((_, index) => ({
-      ...bare,
-      windows: wish.windows.length - 1 - index,
-    })),
   ]
+  const dropping = wish.windows.map((_, index) => ({
+    ...bare,
+    windows: wish.windows.length - 1 - index,
+  }))
+
+  if (wish.cache === undefined) {
+    return [...stepped, full, ...giving, ...dropping]
+  }
+
+  // The cache's bar narrows first, after the price per step, then holds at
+  // its narrowest while the rest gives way, and goes before a window does.
+  // Its time and its button stay.
+  const { bar } = wish.cache
+  const narrow = Math.min(bar, CACHE_BAR_MIN_PX)
+  const at = (width: number) => (step: Fitted): Fitted => ({ ...step, cacheBar: width })
+
+  return [...[...stepped, full].map(at(bar)), ...[full, ...giving].map(at(narrow)), ...[bare, ...dropping].map(at(0))]
 }
 
 export const fit = (wish: Wish, columns: number): Fitted => {
@@ -265,6 +296,11 @@ export const told = (wish: Wish, fitted: Fitted, columns: number) => {
     wish.eta !== null && !fitted.hasEta ? 'forecast' : null,
     fitted.hasWords ? null : 'words',
     hasClocks && !fitted.hasClock ? 'countdowns' : null,
+    wish.cache !== undefined && (fitted.cacheBar ?? 0) < wish.cache.bar
+      ? (fitted.cacheBar ?? 0) === 0
+        ? "the cache's bar"
+        : "the cache's bar at full width"
+      : null,
     gone > 0 ? `${gone} window${gone === 1 ? '' : 's'}` : null,
   ].filter(part => part !== null)
   const layout =

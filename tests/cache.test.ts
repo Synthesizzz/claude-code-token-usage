@@ -2,7 +2,9 @@ import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 import type { TestBody } from 'claude-code/testing'
 
-import { DEFAULT_TTL, WARM_TEXT, cacheHints, cacheLine, cacheNotice, cachePhase, cacheRates, cacheWord, hasLapsedActions, judgePause, keepPauses, learnedTtl } from '../hooks/cache'
+import { DEFAULT_TTL, WARM_TEXT, cacheCells, cacheClock, cacheHints, cacheLine, cacheNotice, cachePhase, cacheRates, cacheWord, hasLapsedActions, judgePause, keepPauses, learnedTtl, nextChange } from '../hooks/cache'
+import { CACHE_BAR_MIN_PX, CACHE_BAR_PX, fit, told, widthOf } from '../hooks/fit'
+import type { Wish } from '../hooks/fit'
 import { TYPED } from './kit'
 
 // Warn before the prompt cache lapses: the time it lasts is learned from the
@@ -169,7 +171,7 @@ test('the pane says what was learned, or that the hour is the default until a pa
 const SITE = { scroll: { offset: 0, bodyRows: 10 }, view: {} }
 const BAND = {
   component: 'AbovePrompt',
-  props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 140, ...SITE },
+  props: { hasSurvey: false, isCollapsed: false, isWorking: false, maxRows: 10, bodyColumns: 140, ...SITE },
 } as const
 const usage = (input: number, cacheRead: number, cacheWrite: number) => ({
   model: 'm',
@@ -273,15 +275,15 @@ test('the session learns the cache from its pauses, and the band counts down to 
   const calm = await words(await $.ui.mount({ plugin: 'token-usage', surface: 'terminal', ...BAND }))
   const said = calm.find(({ text }) => text.startsWith('cache '))
 
-  expect(said?.text).toBe('cache 3m')
-  expect(said?.props.dimColor).toBe(true)
+  expect(said?.text).toBe('cache 03:00')
+  expect(said?.props.color).toBe('success')
 
   await clock.advance(2 * MINUTE)
 
   const near = await words(await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND }))
   const warned = near.find(({ text }) => text.startsWith('cache '))
 
-  expect(warned?.text).toBe('cache lapses in 1m00s')
+  expect(warned?.text).toBe('cache 01:00')
   expect(warned?.props.color).toBe('warning')
 
   await clock.advance(2 * MINUTE)
@@ -339,7 +341,7 @@ test('with nothing learned the band counts the hour down from the first turn; a 
   await $.turn.complete(done('t1'))
   await clock.advance(2 * MINUTE)
   expect(kept.get('cachePauses')).toBeUndefined()
-  expect((await bandSays($)).filter(text => text.startsWith('cache '))).toEqual(['cache 58m'])
+  expect((await bandSays($)).filter(text => text.startsWith('cache '))).toEqual(['cache 58:00'])
 
   // The next turn, 7 minutes on, read nothing from the cache: it lapsed.
   await clock.advance(5 * MINUTE)
@@ -347,7 +349,7 @@ test('with nothing learned the band counts the hour down from the first turn; a 
   await $.turn.complete(done('t2'))
   expect(kept.get('cachePauses')).toMatchObject([{ gap: 7 * MINUTE, isKept: false }])
   await clock.advance(2 * MINUTE)
-  expect((await bandSays($)).filter(text => text.startsWith('cache '))).toEqual(['cache 3m'])
+  expect((await bandSays($)).filter(text => text.startsWith('cache '))).toEqual(['cache 03:00'])
 })
 
 test('with nothing learned the crab warns two minutes before the default hour runs out', { timeoutMs: 30_000 }, async ($, on) => {
@@ -551,7 +553,7 @@ test("Keep warm reads the cache with a fork, no turn, and the cache's time start
   // Five and a half minutes after the turn the cache would have lapsed; from
   // the ping, it has two minutes and a half left.
   await clock.advance(2.5 * MINUTE)
-  expect(await cacheSays($)).toEqual(['cache 2m'])
+  expect(await cacheSays($)).toEqual(['cache 03:00'])
 })
 
 // Seen live: 30 seconds after a turn, the first fork read part of a 77k
@@ -681,7 +683,7 @@ test('a session resumed ten minutes on counts the hour down from its last reply'
 
   const { said, hasFresh } = await resumed($, on, { seconds_since_last_response: 600, context_tokens: 148_000 })
 
-  expect(said).toContain('cache 50m')
+  expect(said).toContain('cache 50:00')
   expect(hasFresh).toBe(false)
 })
 
@@ -703,7 +705,7 @@ test("with the cache's time not learned yet, a session resumed ten minutes on co
 
   const { said } = await resumed($, on, { seconds_since_last_response: 600, context_tokens: 148_000 })
 
-  expect(said).toContain('cache 50m')
+  expect(said).toContain('cache 50:00')
 })
 
 test('a fresh start seeds nothing', async ($, on) => {
@@ -881,4 +883,215 @@ test('handoff off puts Compact back on the lapsed band', async ($, on) => {
 
   expect((await band.find({ type: 'Button', key: 'compact' }))?.props.label).toBe('Compact')
   expect(submitted).toEqual([])
+})
+
+// The countdown in the band: mm:ss, a thin bar that empties, and Keep warm,
+// all the pause long.
+
+test('the countdown reads mm:ss: whole minutes while there is time, seconds in the last two', () => {
+  expect(cacheClock(59 * MINUTE + 45_000)).toBe('60:00')
+  expect(cacheClock(58 * MINUTE)).toBe('58:00')
+  expect(cacheClock(2 * MINUTE + 1)).toBe('03:00')
+  expect(cacheClock(2 * MINUTE)).toBe('02:00')
+  expect(cacheClock(119_001)).toBe('02:00')
+  expect(cacheClock(119_000)).toBe('01:59')
+  expect(cacheClock(5000)).toBe('00:05')
+  expect(cacheClock(0)).toBe('00:00')
+})
+
+test('the band redraws as the countdown changes: after the quiet, each minute, each second of the last two, and at the lapse', () => {
+  const hour = 60 * MINUTE
+
+  expect(nextChange(0, 0, hour)).toBe(15_000)
+  // 59:45 left: next at 59:00, then a minute at a time.
+  expect(nextChange(15_000, 0, hour)).toBe(45_000)
+  expect(nextChange(MINUTE, 0, hour)).toBe(MINUTE)
+  // 2:30 left: next at 2:00, then a second at a time.
+  expect(nextChange(hour - 2.5 * MINUTE, 0, hour)).toBe(30_000)
+  expect(nextChange(hour - 2 * MINUTE, 0, hour)).toBe(1000)
+  expect(nextChange(hour - 1500, 0, hour)).toBe(500)
+  expect(nextChange(hour - 1000, 0, hour)).toBe(1000)
+  expect(nextChange(hour, 0, hour)).toBeNull()
+  expect(nextChange(hour + MINUTE, 0, hour)).toBeNull()
+  // Five minutes: three of them by the minute, the last two by the second.
+  expect(nextChange(15_000, 0, 5 * MINUTE)).toBe(45_000)
+  expect(nextChange(3 * MINUTE, 0, 5 * MINUTE)).toBe(1000)
+})
+
+test("a terminal's cache bar has a cell per share of the time left, one at least while any is left", () => {
+  expect(cacheCells(60 * MINUTE, 60 * MINUTE, 8)).toEqual({ full: 8, empty: 0 })
+  expect(cacheCells(30 * MINUTE, 60 * MINUTE, 8)).toEqual({ full: 4, empty: 4 })
+  expect(cacheCells(1000, 60 * MINUTE, 8)).toEqual({ full: 1, empty: 7 })
+  expect(cacheCells(0, 60 * MINUTE, 8)).toEqual({ full: 0, empty: 8 })
+})
+
+test("a narrowing band narrows the cache's bar first and drops it before a window; its time and Keep warm stay", () => {
+  const wish: Wish = {
+    layout: 'bars',
+    context: { used: '84.0k', word: 'context' },
+    windows: [
+      { name: '5-hour', brief: '5h', used: '12%', clock: '2h 10m' },
+      { name: 'weekly', brief: 'wk', used: '40%', clock: '3d 4h' },
+    ],
+    usedWord: 'used',
+    leftWord: 'left',
+    eta: null,
+    cost: '$1.20 API today',
+    action: null,
+    cache: { text: 'cache 58:00', bar: CACHE_BAR_PX, button: 'Keep warm' },
+  }
+  const { cache: _, ...without } = wish
+
+  expect(fit(wish, 200).cacheBar).toBe(CACHE_BAR_PX)
+
+  let last = CACHE_BAR_PX
+
+  for (let columns = 200; columns >= 10; columns -= 1) {
+    const fitted = fit(wish, columns)
+    const bar = fitted.cacheBar ?? 0
+
+    expect(bar).toBeLessThanOrEqual(last)
+
+    // The bar is at its narrowest before anything else gives way.
+    if (!fitted.hasCost || !fitted.hasContextWord) {
+      expect(bar).toBeLessThanOrEqual(CACHE_BAR_MIN_PX)
+    }
+
+    // It goes only once the row is bare, before any window does.
+    if (bar === 0) {
+      expect(fitted.layout === 'compact' && !fitted.hasClock && !fitted.hasWords).toBe(true)
+    }
+
+    if (fitted.windows < wish.windows.length) {
+      expect(bar).toBe(0)
+    }
+
+    last = bar
+  }
+
+  expect(last).toBe(0)
+  // The time and the button are always counted in the row's width.
+  expect(widthOf(wish, fit(wish, 10))).toBeGreaterThan(widthOf(without, fit(without, 10)))
+  expect(told(wish, fit(wish, 10), 10)).toContain("the cache's bar")
+  expect(told(wish, fit(wish, 200), 200)).toBe('Band: 200 columns wide, drawn as bars in full.')
+})
+
+const countdownOf = async (band: { findAll: (query: { type: 'Text' }) => Promise<readonly { text: string; props: Record<string, unknown> }[]> }) =>
+  (await words(band)).find(({ text }) => text.startsWith('cache '))
+
+test('in a pause the desktop band counts the cache down with a clock, a bar that empties and Keep warm, green then yellow', { timeoutMs: 30_000 }, async ($, on) => {
+  const { clock } = world(on)
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.session.measure(measure(84_000))
+  await $.turn.complete(done('t1'))
+  await clock.advance(2 * MINUTE)
+
+  const calm = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND })
+  const said = await countdownOf(calm)
+  const bar = (await calm.findAll({ type: 'Svg' })).find(({ props }) => String(props.alt).startsWith('Prompt cache: '))
+
+  expect(said?.text).toBe('cache 58:00')
+  expect(said?.props.color).toBe('success')
+  expect(bar?.props.alt).toBe('Prompt cache: 58:00 left')
+  expect(bar?.props.width).toBe(CACHE_BAR_PX)
+  expect((await calm.find({ type: 'Button', key: 'cache-warm' }))?.props.label).toBe('Keep warm')
+  // The pointer on the words says how long the cache lasts and that it is the
+  // default; on the button, what Keep warm does.
+  expect(await calm.find({ type: 'Text', text: 'Cache lapses after ~1h idle · the default until a pause says otherwise' })).toBeDefined()
+  expect((await calm.find({ type: 'Box', key: 'hint-warm' }))?.props.display).toBe('none')
+  await calm.unmount()
+
+  // In the last two minutes it counts by the second, in the warning's colour.
+  await clock.advance(56 * MINUTE + 45_000)
+
+  const near = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND, requestId: 'b2' } as never)
+
+  expect((await countdownOf(near))?.text).toBe('cache 01:15')
+  expect((await countdownOf(near))?.props.color).toBe('warning')
+  await near.unmount()
+
+  // Lapsed: the words as before, and nothing to keep warm.
+  await clock.advance(2 * MINUTE)
+
+  const gone = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND, requestId: 'b3' } as never)
+
+  expect((await countdownOf(gone))?.text).toBe('cache lapsed · next turn re-reads 84.0k')
+  expect(await gone.find({ type: 'Button', key: 'cache-warm' })).toBeUndefined()
+  expect((await gone.findAll({ type: 'Svg' })).some(({ props }) => String(props.alt).startsWith('Prompt cache: '))).toBe(false)
+})
+
+test('the hint says the time was learned where the pauses taught it', async ($, on) => {
+  const { clock } = world(on, { cachePauses: [{ gap: 4 * MINUTE, isKept: true, at: 0 }, { gap: 7 * MINUTE, isKept: false, at: 0 }] })
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.session.measure(measure(84_000))
+  await $.turn.complete(done('t1'))
+  await clock.advance(MINUTE)
+
+  const band = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND })
+
+  expect((await countdownOf(band))?.text).toBe('cache 04:00')
+  expect(await band.find({ type: 'Text', text: 'Cache lapses after ~5m idle · learned from 2 pauses' })).toBeDefined()
+})
+
+test("a terminal draws the cache's bar in cells beside its time and Keep warm; too narrow, the bar goes and the time stays", async ($, on) => {
+  const { clock } = world(on)
+
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.session.measure(measure(84_000))
+  await $.turn.complete(done('t1'))
+  await clock.advance(30 * MINUTE)
+
+  const wide = await $.ui.mount(terminalBand(120, 10, 't1'))
+  const said = (await words(wide)).map(({ text }) => text)
+
+  expect(said).toContain('cache 30:00')
+  expect(said).toContain('▰▰▰▰')
+  expect(said).toContain('▱▱▱▱')
+  expect(await wide.find({ type: 'Button', key: 'cache-warm' })).toBeDefined()
+  await wide.unmount()
+
+  // Room on the second row for the time and the button, not for three cells more.
+  const narrow = await $.ui.mount(terminalBand(6 + 'cache 30:00'.length + 1 + 'Keep warm'.length + 4 + 2, 10, 't2'))
+  const tight = (await words(narrow)).map(({ text }) => text)
+
+  expect(tight).toContain('cache 30:00')
+  expect(tight.some(text => text.includes('▰') || text.includes('▱'))).toBe(false)
+  expect(await narrow.find({ type: 'Button', key: 'cache-warm' })).toBeDefined()
+})
+
+test("the band's Keep warm takes the notice's path: a quiet ping, and the countdown starts over", async ($, on) => {
+  const { clock, bind, forks, toasts, submitted } = warmWorld(on, [answered(84_000, 200)])
+
+  await startAndPause($, bind)
+  await clock.advance(MINUTE)
+
+  const band = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND })
+
+  expect((await countdownOf(band))?.text).toBe('cache 04:00')
+  await band.press({ key: 'cache-warm' })
+  await band.unmount()
+  expect(forks).toHaveLength(1)
+  expect(submitted).toEqual([])
+  expect(toasts).toContain('Cache kept warm: read 84.0k (about 8.4k at full price).')
+  await clock.advance(20_000)
+  expect(await cacheSays($)).toEqual(['cache 05:00'])
+})
+
+test('while the crab offers Keep warm the band does not offer it twice', async ($, on) => {
+  const { clock, bind } = warmWorld(on, [])
+
+  await startAndPause($, bind)
+  await clock.advance(MINUTE)
+  await $.command.run({ ...TYPED, command: 'tokens', args: 'alerts test cache' })
+
+  const band = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND })
+  const buttons = (await band.findAll({ type: 'Button' })).map(({ props }) => String(props.label))
+
+  expect(await band.find({ type: 'Button', key: 'choice-warm' })).toBeDefined()
+  expect(await band.find({ type: 'Button', key: 'cache-warm' })).toBeUndefined()
+  expect(buttons.filter(label => label === 'Keep warm')).toHaveLength(1)
+  // The countdown still stands, without its button.
+  expect((await countdownOf(band))?.text).toBe('cache 04:00')
 })

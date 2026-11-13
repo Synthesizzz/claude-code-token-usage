@@ -190,9 +190,6 @@ export const PAUSES_KEY = 'cachePauses'
 // Kept once a quiet Keep warm ping was seen not to hold the cache.
 export const FORK_SHORT_KEY = 'forkShort'
 
-// While a pause is counted down the band redraws this often.
-export const CACHE_TICK_MS = 5000
-
 // After a pause this long the crab sleeps where the context ring is.
 export const SLEEP_MS = 2 * 60_000
 

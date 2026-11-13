@@ -222,6 +222,41 @@ export const barSvg = (
   }
 }
 
+// The prompt cache's time left: a thin bar that empties from the right as
+// the pause runs on, in the colour it is counted in.
+export const cacheBarSvg = (share: number, width: number, color: string, alt: string) => {
+  const filled = width * Math.min(1, Math.max(0, share))
+  const rect = (wide: number, attributes: string) =>
+    `<rect x="0" y="9" width="${wide.toFixed(1)}" height="4" rx="2" ${attributes}/>`
+
+  return {
+    source: svg(
+      width,
+      BAR_HEIGHT,
+      `${rect(width, `fill="${TRACK}" fill-opacity=".28"`)}${filled > 0 ? rect(Math.max(4, filled), `fill="${color}"`) : ''}`,
+    ),
+    alt,
+  }
+}
+
+// A clock face, before the cache's countdown. Simple shapes, spaced numbers:
+// the desktop scrubs every path it draws.
+// Its size is the fit's CLOCK_PX.
+const CLOCK = 14
+
+export const clockSvg = (color: string) => ({
+  source: svg(
+    CLOCK,
+    CLOCK,
+    [
+      `<circle cx="7" cy="7" r="5.6" fill="none" stroke="${color}" stroke-width="1.4"/>`,
+      `<line x1="7" y1="7" x2="7" y2="3.6" stroke="${color}" stroke-width="1.4" stroke-linecap="round"/>`,
+      `<line x1="7" y1="7" x2="9.4" y2="8.4" stroke="${color}" stroke-width="1.4" stroke-linecap="round"/>`,
+    ].join(''),
+  ),
+  alt: 'Prompt cache',
+})
+
 // A window as a dot in the colour of its level, for a layout of text alone.
 export const dotSvg = (used: number, name: string, palette: Palette = DEFAULTS) => ({
   source: svg(

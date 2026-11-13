@@ -6,15 +6,15 @@ import type { EngineInterface, MatchedHook } from 'claude-code'
 import type { Motion, RingProps, Snapshot, Style } from '../types'
 import { isCrowded } from './alerts'
 import { EMPTY, budgetShare, isPlanOf, today, usd } from './cost'
-import { cacheHints, cachePhase, cacheRates, cacheWord, learnedTtl } from './cache'
+import { cacheCells, cacheClock, cacheHints, cacheLine, cachePhase, cacheRates, cacheWord, learnedTtl } from './cache'
 import { contextNews, mixOf } from './context'
 import { shortTokens } from './cost'
 import { CRAB_ROWS, WORK_PX, crabSvg, daysOf, idleSvg, moodOf, napSvg, stageSvg, toneOf } from './crab'
-import { RING_PX, fit, told } from './fit'
+import { CACHE_BAR_PX, CLOCK_PX, RING_PX, fit, told } from './fit'
 import type { Wish } from './fit'
 import { paletteFor, words } from './style'
 import { drawWindows } from './row'
-import { ringSvg } from './svg'
+import { cacheBarSvg, clockSvg, ringSvg } from './svg'
 import {
   barCellsFor,
   CONTEXT_CELLS,
@@ -35,7 +35,7 @@ import {
   turnsLeft,
 } from './usage'
 import { note, trouble } from './measure'
-import { act, cacheSaid as pricing, heard, hush, pressMove } from './notices'
+import { act, cacheSaid as pricing, heard, hush, pressMove, warmCache } from './notices'
 import { nextMove, payback, quietSoon } from './next'
 import { GLYPHS, dotColor, dotHint, dotsOf, fleetRows } from './fleet'
 import type { Seen } from './next'
@@ -64,6 +64,14 @@ const HINT_MOVE = `${HINT}move`
 const HINT_CACHE = `${HINT}cache`
 const HINT_CONTEXT = `${HINT}context`
 const HINT_FLEET = `${HINT}fleet-`
+const HINT_WARM = `${HINT}warm`
+
+// The countdown's button, the same Keep warm the crab's notice offers.
+const WARM = 'Keep warm'
+// The cache's bar in a terminal, in cells: at most this many, and none where
+// fewer would fit.
+const CACHE_CELLS = 8
+const CACHE_CELLS_MIN = 3
 
 // Every open session's fleet file as last read.
 const fleet = atom({ plugin: 'token-usage', key: 'fleet' } as const, [])
@@ -131,7 +139,8 @@ export async function weighMove($: EngineInterface, usage: Snapshot, at: number,
   const isSoon = toGo !== null && toGo <= SOON_TURNS
   // While no turn runs, the cache counts down the pause since the last.
   const paused = isWorking ? null : await read($, idleSince)
-  const { ttl, isLearned } = learnedTtl(await read($, pauses))
+  const learned = learnedTtl(await read($, pauses))
+  const { ttl, isLearned } = learned
   // A test of the lapse shows it for a minute, for the context as it is.
   const isTestLapse = !isWorking && (await read($, cacheTest)) > at
   // A resumed session the engine called lapsed is lapsed, where the cache's
@@ -159,7 +168,7 @@ export async function weighMove($: EngineInterface, usage: Snapshot, at: number,
     payback: payback(tokens, steps, cacheRates(model, ttl).read),
   }
 
-  return { move: nextMove(seen), seen, steps, model, paused, ttl, cachePart, idleTokens }
+  return { move: nextMove(seen), seen, steps, model, paused, ttl, learned, cachePart, idleTokens }
 }
 
 export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<DrawBandHook>[1], next: Parameters<DrawBandHook>[2]) {
@@ -173,7 +182,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
     const { percent } = usage
     const at = Math.max(usage.at, await read($, now))
     const style = await styleOf($, scope.base)
-    const { move, paused, ttl, cachePart, idleTokens } = await weighMove($, usage, at, style, e.props.isWorking)
+    const { move, paused, ttl, learned, cachePart, idleTokens } = await weighMove($, usage, at, style, e.props.isWorking)
     const press =
       move === null ? null : (
         <Button
@@ -223,13 +232,31 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
     // On a subscription the dollars are the API's price, not a bill.
     const cost = usage.usd === null ? null : `${usd(today(kept, at))} ${isPlanOf(usage.limits) ? 'API today' : 'today'}`
     const band = shown(layout(usage, at, columns, cost), style)
-    const cacheSaid =
-      quiet !== null || cachePart === null
+    // While the cache holds, a countdown: its time, a bar that empties, and
+    // Keep warm; green, then yellow near the end. Once it has lapsed, the
+    // words of what the next turn re-reads.
+    const counting =
+      quiet !== null || cachePart === null || cachePart.phase === 'gone'
         ? null
         : {
-            text: cacheWord(cachePart, idleTokens),
-            color: cachePart.phase === 'gone' ? ('error' as const) : cachePart.phase === 'near' ? ('warning' as const) : null,
+            text: `cache ${cacheClock(cachePart.left)}`,
+            tone: cachePart.phase === 'near' ? ('warning' as const) : ('success' as const),
+            left: cachePart.left,
           }
+    const cacheSaid =
+      quiet !== null || cachePart?.phase !== 'gone' ? null : { text: cacheWord(cachePart, idleTokens), color: 'error' as const }
+    // The crab's notice offers Keep warm itself while it stands: the band does
+    // not offer it twice.
+    const isWarmOffered = isStaying && (talk?.choices ?? []).some(({ key }) => key === 'warm')
+    const hasWarm = counting !== null && !isWarmOffered
+    const warmPress = (isHinted: boolean) => (
+      <Button
+        key="cache-warm"
+        label={WARM}
+        {...(isHinted ? { hover: { scope: HINT_WARM } } : {})}
+        onPress={() => void warmCache($)}
+      />
+    )
     // The pointer on it says what a lapse costs, beneath the band's top.
     const cacheText = (said: { text: string; color: 'error' | 'warning' | null }) =>
       said.color === null ? (
@@ -346,6 +373,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
           : cacheSaid !== null || news !== null
             ? { note: { text: [cacheSaid?.text, news?.text].filter(Boolean).join('     '), figure: 0 } }
             : {}),
+        ...(counting === null ? {} : { cache: { text: counting.text, bar: CACHE_BAR_PX, button: hasWarm ? WARM : null } }),
       }
       const fitted = fit(wish, e.props.bodyColumns)
       const isSnug = fitted.layout !== style.layout
@@ -444,13 +472,16 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
                       : move.reason,
               },
             ]),
+        // How long the cache lasts, and where that came from: the default
+        // hour, or what the pauses taught.
         ...(cachePart === null
           ? []
           : [
               cachePart.phase === 'gone'
                 ? { scope: HINT_CACHE, label: 'The cache has lapsed', hint: hints.gone }
-                : { scope: HINT_CACHE, label: 'Why a big context costs', hint: hints.why },
+                : { scope: HINT_CACHE, label: `C${cacheLine(learned).slice(1)}`, hint: hints.why },
             ]),
+        ...(hasWarm ? [{ scope: HINT_WARM, label: WARM, hint: hints.warm }] : []),
         ...(hasSizeHint ? [{ scope: HINT_CONTEXT, label: sizeLabel, hint: sizeHint }] : []),
         ...dots.map((row, index) => ({ scope: `${HINT_FLEET}${index}`, ...dotHint(row) })),
       ]
@@ -543,6 +574,21 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
               </Box>
             )}
             {fitted.hasCost && cacheSaid !== null && <Box flexShrink={0}>{cacheText(cacheSaid)}</Box>}
+            {counting !== null && (
+              <Box key="cache" gap={1} alignItems="center" flexShrink={0}>
+                {figure(clockSvg(palette[counting.tone]), CLOCK_PX, CLOCK_PX)}
+                <Text color={counting.tone} hover={{ scope: HINT_CACHE, underline: true }}>
+                  {counting.text}
+                </Text>
+                {(fitted.cacheBar ?? 0) > 0 &&
+                  figure(
+                    cacheBarSvg(counting.left / ttl, fitted.cacheBar ?? 0, palette[counting.tone], `Prompt cache: ${cacheClock(counting.left)} left`),
+                    fitted.cacheBar ?? 0,
+                    22,
+                  )}
+                {hasWarm && warmPress(true)}
+              </Box>
+            )}
             {fitted.hasCost && newsPress !== null && <Box flexShrink={0}>{newsPress}</Box>}
             {dots.length > 0 && (
               <Box key="fleet" gap={1} alignItems="center" flexShrink={0}>
@@ -578,8 +624,31 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
 
       return taken + gap + wide <= columns ? ((taken += gap + wide), true) : false
     }
+    const spare = (gap = 3) => (hasSecondRow ? secondColumns - below : columns - taken) - gap
+    // The countdown asks first, its time and button whole; its bar takes what
+    // is left of its cells, or goes.
+    const warmWide = hasWarm ? 1 + WARM.length + 4 : 0
+    const countWide = counting === null ? 0 : counting.text.length + warmWide
+    const cacheCellsShown = Math.min(CACHE_CELLS, spare() - countWide - 1)
+    const barShown = cacheCellsShown >= CACHE_CELLS_MIN ? cacheCellsShown : 0
+    const hasCount = counting !== null && room(countWide + (barShown === 0 ? 0 : barShown + 1))
     const hasNews = news !== null && room(news.text.length)
     const hasCache = cacheSaid !== null && room(cacheSaid.text.length)
+    const countDrawn =
+      counting === null ? null : (
+        <Box key="cache" gap={1}>
+          <Text color={counting.tone}>{counting.text}</Text>
+          {barShown > 0 && (
+            <Box>
+              <Text color={counting.tone}>{'▰'.repeat(cacheCells(counting.left, ttl, barShown).full)}</Text>
+              {cacheCells(counting.left, ttl, barShown).empty > 0 && (
+                <Text dimColor>{'▱'.repeat(cacheCells(counting.left, ttl, barShown).empty)}</Text>
+              )}
+            </Box>
+          )}
+          {hasWarm && warmPress(false)}
+        </Box>
+      )
     const hasMix = held !== null && hasContext && room(TERMINAL_CELLS + (hasSecondRow ? MIX_WORD.length : 0), hasSecondRow ? 3 : 1)
     // The dots ask for their room last: where it is short they go first.
     const hasFleet = dots.length > 0 && room(dots.length + moreText.length)
@@ -598,7 +667,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
     const hasCrabRows =
       e.props.maxRows >= CRAB_MIN_ROWS && e.props.bodyColumns >= CRAB_MIN_COLUMNS
     const crabDrawn = CRAB_ROWS.map(row => <Text color={talk === null ? undefined : toneOf(talk.kind)}>{row}</Text>)
-    const second = hasSecondRow && (hasMix || hasCache || hasNews || hasFleet) ? (
+    const second = hasSecondRow && (hasMix || hasCount || hasCache || hasNews || hasFleet) ? (
       <Box gap={3} paddingLeft={SECOND_INDENT}>
         {hasMix && (
           <Box gap={1}>
@@ -606,6 +675,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
             <Text dimColor>{MIX_WORD.trim()}</Text>
           </Box>
         )}
+        {hasCount && countDrawn}
         {hasCache && cacheSaid !== null && cacheText(cacheSaid)}
         {hasNews && newsPress}
         {hasFleet && fleetDrawn}
@@ -704,6 +774,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
           {terminalBand.eta !== null && <Text color="warning">{terminalBand.eta}</Text>}
           {terminalBand.cost !== null && <Text>{terminalBand.cost}</Text>}
           {quiet !== null && <Text dimColor>{quiet}</Text>}
+          {!hasSecondRow && hasCount && countDrawn}
           {!hasSecondRow && hasCache && cacheSaid !== null && cacheText(cacheSaid)}
           {!hasSecondRow && hasNews && newsPress}
           {!hasSecondRow && hasFleet && fleetDrawn}

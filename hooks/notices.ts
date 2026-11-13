@@ -7,10 +7,10 @@ import type { Notice, Saying, Style } from '../types'
 import { loudest } from './alerts'
 import { spoken, toastArgv, toastEnv } from './notify'
 import { apply } from './style'
-import { CACHE_WARN_MS, WARM_TEXT, cacheNotice, cacheRates, isHeavyPing, isWarmPing, learnedTtl } from './cache'
+import { CACHE_WARN_MS, WARM_TEXT, cacheNotice, cacheRates, isHeavyPing, isWarmPing, learnedTtl, nextChange } from './cache'
 import { shortTokens } from './cost'
 import { isQuiet } from './usage'
-import { AGENTS_PANE, CACHE_TICK_MS, CHOICE_MS, FORK_SHORT_KEY, HANDOFF, LEAVE_MS, NOTIFY_MS, SAY_MS, STYLE_KEY, SWITCH_FILE, scope, styleOf, tick } from './state'
+import { AGENTS_PANE, CHOICE_MS, FORK_SHORT_KEY, HANDOFF, LEAVE_MS, NOTIFY_MS, SAY_MS, STYLE_KEY, SWITCH_FILE, scope, styleOf, tick } from './state'
 import { stoppedAdvice } from './advice'
 import type { ChoiceKey } from './advice'
 import type { MoveKey } from './next'
@@ -121,20 +121,35 @@ const forkShort = atom({ plugin: 'token-usage', key: 'forkShort' } as const, fal
 
 const pauses = atom({ plugin: 'token-usage', key: 'pauses' } as const, [])
 
-// The pause the cache counts down: the band's redraws, and its one warning.
-const pausing: { ticking?: Timer; warning?: Timer } = {}
+// The pause the cache counts down: the band's next redraw, and its one
+// warning. `run` tells a pause from the one before it, so a redraw that was
+// already under way when a pause ended schedules nothing more.
+const pausing: { ticking?: Timer; warning?: Timer; run: number } = { run: 0 }
 
 export function endPause() {
+  pausing.run += 1
   pausing.ticking?.cancel()
   pausing.warning?.cancel()
   pausing.ticking = undefined
   pausing.warning = undefined
 }
 
+// The band redraws when its countdown changes: once a minute, then each
+// second in the last two, and once more as the cache lapses.
+async function countDown($: EngineInterface, began: number, ttl: number, run: number) {
+  const wait = nextChange(await $.clock.now(), began, ttl)
+
+  if (wait === null || pausing.run !== run) {
+    return
+  }
+
+  pausing.ticking = $.clock.after(wait, () => void tick($).then(() => countDown($, began, ttl, run)))
+}
+
 // A pause begins: at a turn's end, at a quiet Keep warm ping, or long since,
-// on a resumed session. The band counts the cache down, more often near its
-// end, until it has lapsed; the crab warns once, two minutes before, of a
-// cache that lasts longer than that.
+// on a resumed session. The band counts the cache down until it has lapsed;
+// the crab warns once, two minutes before, of a cache that lasts longer than
+// that.
 export async function beginPause(
   $: EngineInterface,
   base: Style,
@@ -154,10 +169,8 @@ export async function beginPause(
   }
 
   const left = at + ttl - (await $.clock.now())
-  const ticker = $.clock.every(CACHE_TICK_MS, () => void tick($))
 
-  pausing.ticking = ticker
-  $.clock.after(Math.max(0, left) + CACHE_TICK_MS * 4, () => ticker.cancel())
+  await countDown($, at, ttl, pausing.run)
 
   if (ttl > CACHE_WARN_MS && left > CACHE_WARN_MS) {
     pausing.warning = $.clock.after(left - CACHE_WARN_MS, () => void warnCache($, base, at, ttl))
@@ -245,6 +258,16 @@ export async function keepWarm($: EngineInterface, isRetry = false) {
   // The cache's time starts over from the ping; the pause after it is told
   // apart, so it never teaches how long the cache lasts.
   await beginPause($, scope.base, at, held.tokens, { afterFork: true })
+}
+
+// Keep warm, from the crab's notice or the band's countdown alike: quietly,
+// where a ping has been seen to hold the cache; else with a turn that shows.
+export async function warmCache($: EngineInterface) {
+  if (await read($, forkShort)) {
+    await $.prompt.submit({ text: WARM_TEXT, asUser: true })
+  } else {
+    await keepWarm($)
+  }
 }
 
 // A pause begun at a ping lapsed before the cache's learned time: the ping
@@ -590,13 +613,7 @@ export async function act($: EngineInterface, key: ChoiceKey, tokens: string, ha
 
       return
     case 'warm':
-      // Quietly, where a ping has been seen to hold the cache; else with a
-      // turn that shows.
-      if (await read($, forkShort)) {
-        await $.prompt.submit({ text: WARM_TEXT, asUser: true })
-      } else {
-        await keepWarm($)
-      }
+      await warmCache($)
 
       return
     default:

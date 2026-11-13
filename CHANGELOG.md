@@ -2,6 +2,15 @@
 
 What each version of token-usage added or changed, newest first. Versions before 0.5.2 came before the repository, and 0.10 to 0.12 have no commit of their own: their work is in 0.13.0.
 
+## 0.53.0
+
+- The cache counts down in the band's own row while no turn runs: a clock, the time as mm:ss (`cache 58:00`), a thin bar that empties, and a **Keep warm** button the whole pause, green and then yellow in the last two minutes. The row is no taller. In a terminal the bar is `▰▱` cells. It was `cache 58m` in words, with a bar only in the crab's notice two minutes before the lapse.
+- The countdown changes once a minute, and each second in the last two minutes. The band redraws when it changes, where it redrew every 5 seconds the whole pause.
+- A narrow band narrows the cache's bar first and drops it before it drops a window; the time and the button stay. `/tokens list` says when the bar was narrowed or dropped.
+- The band's Keep warm takes the crab's path: the quiet ping, or the short turn where a ping did not hold the cache. While the crab's notice offers Keep warm, the band does not offer it again.
+- On the desktop the pointer on the countdown says whether the cache's time is the default hour or learned from the pauses.
+- A lapsed cache shows as before.
+
 ## 0.52.0
 
 - Before any pause has taught it, the cache lasts the default hour: the band counts down and the crab warns from the first turn, where they said nothing until a pause was learned. The first pause that lapsed sooner replaces the hour with 5 minutes, as before; no setting.
