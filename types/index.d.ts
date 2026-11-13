@@ -220,6 +220,8 @@ declare module 'claude-code' {
       // heavy-turn line raised for the session.
       turnNow: string | null
       compactAfter: boolean
+      // Whether the handoff mod's /handoff was there when last asked, and when.
+      handoffCommand: { at: number; has: boolean } | null
       heavyBoost: number
       // Until when `/tokens alerts test lapsed` has the band show a lapsed cache.
       cacheTest: number

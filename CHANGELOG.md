@@ -2,6 +2,12 @@
 
 What each version of token-usage added or changed, newest first. Versions before 0.5.2 came before the repository, and 0.10 to 0.12 have no commit of their own: their work is in 0.13.0.
 
+## 0.54.0
+
+- Hand off and Park come only with a context of 250k or more, on all three paths: the lapsed cache, the full context, and Park before quiet hours or a lapse. Under 250k each is Compact, a hand-off message set or not. The lapsed band had offered Hand off from 50k.
+- Where the handoff mod's `/handoff` is there, Hand off and Park run it instead of sending the hand-off message, and the band offers them with no message set. Hand off in the crab's choices after a stop runs it too, where a message is set. The band asks whether `/handoff` is there when the session starts, after each main turn and on a press, and only reads it while drawing.
+- The hints on the band name Hand off only where the band can offer it.
+
 ## 0.53.0
 
 - The cache counts down in the band's own row while no turn runs: a clock, the time as mm:ss (`cache 58:00`), a thin bar that empties, and a **Keep warm** button the whole pause, green and then yellow in the last two minutes. The row is no taller. In a terminal the bar is `▰▱` cells. It was `cache 58m` in words, with a bar only in the crab's notice two minutes before the lapse.

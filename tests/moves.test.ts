@@ -172,3 +172,89 @@ test('a full context hands off where a message is set, on a narrow terminal too'
     await ui.unmount()
   }
 })
+
+// Where the handoff mod is there, Hand off and Park run its /handoff: it
+// writes the handoff, saves it and offers Start fresh on its own card. Both
+// wait for 250k, as without it.
+const withHandoff = (on: On) => {
+  const ran: string[] = []
+
+  on('command.list', () => ({ value: [{ name: 'handoff', description: 'Write a handoff', source: 'plugin', plugin: 'handoff' }] }) as never)
+  on('command.run', { command: 'handoff' }, (_, e) => {
+    ran.push(`/${e.command} ${e.args}`.trim())
+
+    return { text: 'building' }
+  })
+
+  return ran
+}
+
+test('with /handoff there, a full context offers Hand off with no message set, and the press runs /handoff', async ($, on) => {
+  const { submitted } = world(on)
+  const ran = withHandoff(on)
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.session.measure(sized(410_000))
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band() })
+
+  expect((await ui.find({ type: 'Button', key: 'fresh' }))?.props.label).toBe('Hand off')
+  expect((await ui.findAll({ type: 'Text' })).some(({ text }) => text.includes('Hand off runs /handoff'))).toBe(true)
+  await ui.press({ key: 'fresh' })
+  expect(ran).toEqual(['/handoff'])
+  expect(submitted).toEqual([])
+})
+
+test('with /handoff there, Park before quiet hours runs /handoff and compacts nothing', async ($, on) => {
+  const { submitted, compactions } = world(on, new Date(2026, 10, 10, 21, 40).getTime())
+  const ran = withHandoff(on)
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.command.run({ ...TYPED, command: 'tokens', args: 'alerts quiet 22-8' })
+  await $.session.measure(sized(250_000))
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band() })
+
+  expect((await ui.find({ type: 'Button', key: 'park' }))?.props.label).toBe('Park')
+  await ui.press({ key: 'park' })
+  expect(ran).toEqual(['/handoff'])
+  expect(submitted).toEqual([])
+  expect(compactions()).toBe(0)
+})
+
+test('with /handoff there, under 250k the band offers Compact on every path, never Hand off or Park', async ($, on) => {
+  world(on, new Date(2026, 10, 10, 21, 40).getTime())
+  const ran = withHandoff(on)
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.command.run({ ...TYPED, command: 'tokens', args: 'alerts quiet 22-8' })
+  // Heavy before quiet hours, and full by its share on a small window.
+  await $.session.measure({ context: { window: 260_000, tokens: 240_000, percent: 92 }, rateLimits: [], changed: ['context' as const] })
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band() })
+
+  expect(await ui.find({ type: 'Button', key: 'fresh' })).toBeUndefined()
+  expect(await ui.find({ type: 'Button', key: 'park' })).toBeUndefined()
+  expect((await ui.find({ type: 'Button', key: 'compact' }))?.props.label).toBe('Compact')
+  expect(ran).toEqual([])
+})
+
+test('with /handoff there, Hand off pressed while a turn runs says to wait and runs nothing', async ($, on) => {
+  const { toasts } = world(on)
+  const ran = withHandoff(on)
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.session.measure(sized(410_000))
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band() })
+
+  // The band drawn while idle, pressed as a turn begins.
+  await $.ui.press({ plugin: PLUGIN, key: 'fresh' })
+  expect(ran).toEqual(['/handoff'])
+  await ui.unmount()
+
+  const busy = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band(true) })
+
+  expect(await busy.find({ type: 'Button', key: 'fresh' })).toBeUndefined()
+  expect(toasts).toEqual([])
+})

@@ -16,6 +16,7 @@ const seen = (tokens: number | null, more: Partial<Seen> = {}): Seen => ({
   quietSoon: false,
   isSoon: false,
   handoff: '',
+  hasCommand: false,
   payback: null,
   ...more,
 })
@@ -26,10 +27,30 @@ test('a running turn compacts after it where the context is full, else waits', (
   expect(keyOf(seen(250_000, { isWorking: true, quietSoon: true }))).toBe(null)
 })
 
-test('a lapsed cache over 50k hands off, or compacts with no hand-off message', () => {
-  expect(nextMove(seen(120_000, { cache: { phase: 'gone' }, handoff: 'Write a handoff.' }))).toMatchObject({ key: 'fresh', label: 'Hand off' })
+test('a lapsed cache over 50k compacts under 250k, a hand-off message or not', () => {
+  expect(nextMove(seen(120_000, { cache: { phase: 'gone' }, handoff: 'Write a handoff.' }))).toMatchObject({ key: 'compact', label: 'Compact' })
+  expect(nextMove(seen(249_999, { cache: { phase: 'gone' }, hasCommand: true }))).toMatchObject({ key: 'compact', label: 'Compact' })
   expect(nextMove(seen(120_000, { cache: { phase: 'gone' } }))).toMatchObject({ key: 'compact', label: 'Compact' })
   expect(keyOf(seen(40_000, { cache: { phase: 'gone' } }))).toBe(null)
+})
+
+test('a lapsed cache at 250k or more hands off with a message or /handoff, else compacts', () => {
+  expect(nextMove(seen(250_000, { cache: { phase: 'gone' }, handoff: 'Write a handoff.' }))).toMatchObject({ key: 'fresh', label: 'Hand off' })
+  expect(nextMove(seen(260_000, { cache: { phase: 'gone' }, hasCommand: true }))).toMatchObject({ key: 'fresh', label: 'Hand off' })
+  expect(nextMove(seen(260_000, { cache: { phase: 'gone' }, hasCommand: true }))?.reason).toContain('Hand off runs /handoff')
+  expect(nextMove(seen(260_000, { cache: { phase: 'gone' } }))).toMatchObject({ key: 'compact', label: 'Compact' })
+})
+
+test('Hand off waits for 250k on every path: the lapse, the full context and Park', () => {
+  // A small window is full by its share well under 250k: it compacts.
+  const small = { percent: 90, cache: null }
+  expect(nextMove(seen(180_000, { ...small, hasCommand: true, handoff: 'Write a handoff.' }))).toMatchObject({ key: 'compact' })
+  // Park before quiet hours: under 250k a compaction, from it Park.
+  const heavy = (tokens: number) => seen(tokens, { percent: 80, quietSoon: true, hasCommand: true })
+  expect(nextMove(heavy(200_000))).toMatchObject({ key: 'compact', label: 'Compact' })
+  expect(nextMove(heavy(250_000))).toMatchObject({ key: 'park', label: 'Park' })
+  expect(nextMove(heavy(250_000))?.reason).toContain('Park runs /handoff before you leave')
+  expect(nextMove(seen(null, { percent: 95, hasCommand: true }))).toMatchObject({ key: 'compact' })
 })
 
 test('a context filling within a few turns compacts, as the primary', () => {
@@ -50,6 +71,7 @@ test('a heavy context parks before quiet hours or a lapse, or compacts with no h
 
 test('a full context hands off, or compacts with no hand-off message', () => {
   expect(nextMove(seen(410_000, { handoff: 'Write a handoff.' }))).toMatchObject({ key: 'fresh', label: 'Hand off' })
+  expect(nextMove(seen(410_000, { hasCommand: true }))).toMatchObject({ key: 'fresh', label: 'Hand off' })
   expect(nextMove(seen(410_000))).toMatchObject({ key: 'compact', isPrimary: false })
   expect(nextMove(seen(410_000))?.reason).toContain('410k')
 })

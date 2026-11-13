@@ -227,8 +227,8 @@ const world = (on: On, stored: Record<string, unknown> = {}) => {
     },
   }
 }
-const measure = (tokens: number) => ({
-  context: { window: 200000, tokens, percent: Math.round(tokens / 2000) },
+const measure = (tokens: number, window = 200000) => ({
+  context: { window, tokens, percent: Math.round((tokens / window) * 100) },
   rateLimits: [],
   changed: ['context' as const],
 })
@@ -809,7 +809,7 @@ test('with a handoff set, the hints name Hand off and the message it sends; unse
   expect(handed.compact).toBe(plain.compact)
 })
 
-const lapsedBand = async ($: Engine, on: On, handoff: string | null, isWorking = false) => {
+const lapsedBand = async ($: Engine, on: On, handoff: string | null, isWorking = false, tokens = 140_000) => {
   const toasts: string[] = []
   const submitted: { text: string; asUser: unknown }[] = []
   const cleared: string[] = []
@@ -818,7 +818,7 @@ const lapsedBand = async ($: Engine, on: On, handoff: string | null, isWorking =
   on('prompt.submit', (_, e) => (submitted.push({ text: e.text, asUser: (e.origin as { asUser?: unknown } | undefined)?.asUser }), { text: e.text }) as never)
   on('command.run', { command: 'clear' }, (_, e) => (cleared.push(e.command), { text: '' }))
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
-  await $.session.measure(measure(140_000))
+  await $.session.measure(tokens > 200_000 ? measure(tokens, 1_000_000) : measure(tokens))
 
   if (handoff !== null) {
     await $.command.run({ ...TYPED, command: 'tokens', args: `handoff ${handoff}` })
@@ -831,10 +831,23 @@ const lapsedBand = async ($: Engine, on: On, handoff: string | null, isWorking =
   return { band, toasts, submitted, cleared }
 }
 
-test("with a handoff set, the lapsed band offers Hand off, and a press sends the message as the person's own", async ($, on) => {
+// Hand off waits for 250k (Decisions 2026-11-13): under it, a lapse compacts
+// even with a message set.
+test('with a handoff set, the lapsed band under 250k offers Compact, not Hand off', async ($, on) => {
   world(on)
 
   const { band, submitted, cleared } = await lapsedBand($, on, 'Hand off now')
+
+  expect(await band.find({ type: 'Button', key: 'fresh' })).toBeUndefined()
+  expect((await band.find({ type: 'Button', key: 'compact' }))?.props.label).toBe('Compact')
+  expect(submitted).toEqual([])
+  expect(cleared).toEqual([])
+})
+
+test("with a handoff set, the lapsed band at 250k or more offers Hand off, and a press sends the message as the person's own", async ($, on) => {
+  world(on)
+
+  const { band, submitted, cleared } = await lapsedBand($, on, 'Hand off now', false, 260_000)
   const button = await band.find({ type: 'Button', key: 'fresh' })
 
   expect(button?.props.label).toBe('Hand off')

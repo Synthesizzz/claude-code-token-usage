@@ -29,6 +29,10 @@ export const PAYBACK_TURNS = 3
 export const KEPT_TURNS = 5
 // Park is offered this long before quiet hours begin.
 export const QUIET_SOON_MS = 30 * 60_000
+// Hand off and Park are offered only from this context on; under it the band
+// compacts (Decisions 2026-11-13: a fresh session that reads the last handoff
+// starts near 140k, so handing off earlier gains little).
+export const HANDOFF_AT = 250_000
 
 const HEAVY_AT = 70
 const HOUR_MS = 60 * 60_000
@@ -98,6 +102,8 @@ export type Seen = {
   quietSoon: boolean
   isSoon: boolean
   handoff: string
+  // The handoff mod's /handoff is there: Hand off and Park run it.
+  hasCommand: boolean
   payback: number | null
 }
 
@@ -133,7 +139,14 @@ export const nextText = (
 export const nextMove = (seen: Seen): Move | null => {
   const { tokens, percent, weight, handoff } = seen
   const size = tokens === null ? `${Math.round(percent ?? 0)}%` : shortTokens(tokens)
-  const isHanded = handoff !== ''
+  // A way to hand off (a message, or /handoff) and a context worth it.
+  const isHanded = (handoff !== '' || seen.hasCommand) && tokens !== null && tokens >= HANDOFF_AT
+  const handsOff = seen.hasCommand
+    ? 'Hand off runs /handoff: it writes and saves a handoff, then Start fresh opens a new chat with it.'
+    : 'Hand off sends your hand-off message for a fresh session.'
+  const parks = seen.hasCommand
+    ? `Park runs /handoff before you leave: the handoff is written and saved while ${size} is still cached.`
+    : `Park sends your hand-off message, then compacts: the next turn reads a summary, not ${size}.`
   const isFull = isCrowded(tokens, percent, weight)
   const move = (key: MoveKey, label: string, why: string, then: string, isPrimary = false): Move => ({
     key,
@@ -144,7 +157,7 @@ export const nextMove = (seen: Seen): Move | null => {
   })
   const handOff = (why: string) =>
     isHanded
-      ? move('fresh', HANDOFF, why, 'Hand off sends your hand-off message for a fresh session.')
+      ? move('fresh', HANDOFF, why, handsOff)
       : move('compact', COMPACT, why, 'Compact keeps a summary in its place.')
 
   // A running turn: nothing can start until it ends, so a full context
@@ -169,7 +182,7 @@ export const nextMove = (seen: Seen): Move | null => {
     const why = seen.quietSoon ? 'Quiet hours begin soon.' : 'The cache lapses soon.'
 
     return isHanded
-      ? move('park', PARK, why, `Park sends your hand-off message, then compacts: the next turn reads a summary, not ${size}.`)
+      ? move('park', PARK, why, parks)
       : move('compact', COMPACT, why, `Compact now, and the next turn reads a summary, not ${size}.`)
   }
 

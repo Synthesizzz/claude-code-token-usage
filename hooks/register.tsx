@@ -25,7 +25,7 @@ import { defaults, sane } from './style'
 import { drawBand, weighMove } from './band'
 import { adopt, agentOf, countContext, exported, gather, keep, recount, tidy } from './ledger'
 import { compacted, measure, note, trouble } from './measure'
-import { SAMPLE, SAMPLE_WEEK, beginPause, bring, choose, compactIfAsked, endPause, forkFellShort, tell, testCache, testLapse } from './notices'
+import { SAMPLE, SAMPLE_WEEK, beginPause, bring, choose, compactIfAsked, endPause, forkFellShort, hasHandoffCommand, tell, testCache, testLapse } from './notices'
 import { drawAgentsPane, refreshCrew, watchCrew } from './pane-agents'
 import { drawContextPane } from './pane-context'
 import { joined, spent, stepped, used } from './crew'
@@ -224,7 +224,13 @@ export const register: Register = (on, options) => {
     ticking?.cancel()
     ticking = $.clock.every(TICK_MS, () => void tick($).then(() => refreshFleet($)))
 
-    return next(e)
+    const started = await next(e)
+
+    // The handoff mod registers /handoff in its own session.start: above this
+    // one it has, and beneath it, it has once next(e) is back.
+    await hasHandoffCommand($)
+
+    return started
   }).catch(async ($, e, next) => {
     await note($, 'session.start', next.error)
 
@@ -571,6 +577,9 @@ export const register: Register = (on, options) => {
     }
 
     if (e.agentId === undefined) {
+      // Whether Hand off and Park can run /handoff, for the band to read.
+      await hasHandoffCommand($)
+
       const called = tools
       const heft = pending
       const fill = (await read($, snapshot))?.percent ?? null

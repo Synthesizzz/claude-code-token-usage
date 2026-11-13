@@ -107,6 +107,9 @@ const turnNow = atom({ plugin: 'token-usage', key: 'turnNow' } as const, null)
 
 const compactAfter = atom({ plugin: 'token-usage', key: 'compactAfter' } as const, false)
 
+// Whether the handoff mod's /handoff is there, as last asked.
+const handoffCommand = atom({ plugin: 'token-usage', key: 'handoffCommand' } as const, null)
+
 const heavyBoost = atom({ plugin: 'token-usage', key: 'heavyBoost' } as const, 1)
 
 // The reading the band draws from: the context's fill for what to do after a stop.
@@ -447,6 +450,47 @@ export async function compact($: EngineInterface, isWorking: boolean) {
   }
 }
 
+// Whether the handoff mod's /handoff is there to run, asked now and kept for
+// the band, which only reads it (drawing writes nothing). A plugin's command
+// may be listed under its plain name or with the plugin's prefix. Asked when
+// the session starts, after each main turn, and on a press.
+export async function hasHandoffCommand($: EngineInterface) {
+  const at = await $.clock.now()
+  let has = false
+
+  try {
+    has = (await $.command.list()).some(({ name }) => name === 'handoff' || name.endsWith(':handoff'))
+  } catch {
+    has = false
+  }
+
+  await update($, handoffCommand, () => ({ at, has }))
+
+  return has
+}
+
+// What the band reads while drawing: /handoff as last asked.
+export async function knowsHandoffCommand($: EngineInterface) {
+  return (await read($, handoffCommand))?.has === true
+}
+
+// Hand off and Park where the handoff mod is there: /handoff writes the
+// handoff, saves it and offers Start fresh on its own card. A turn that runs
+// would hold it back, so the press waits, as Compact does.
+export async function runHandoff($: EngineInterface, label: string, isWorking: boolean) {
+  if (isWorking) {
+    $.ui.toast(`Claude is still working: press ${label} again when the turn ends.`)
+
+    return
+  }
+
+  try {
+    await $.command.run({ command: 'handoff', args: '' })
+  } catch (error) {
+    $.ui.toast(`${label} did not run /handoff: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
 // What a Start fresh button does: clear the conversation, as ever; or, where
 // the person set a hand-off message, send it as their own. A turn that runs
 // would take it for the next prompt, so it waits, as Compact does.
@@ -506,12 +550,21 @@ export async function pressMove($: EngineInterface, key: MoveKey, handoff: strin
       $.ui.toast('Compacting when this turn ends.')
 
       return
+    // The band's Hand off and Park: /handoff where the handoff mod is there.
     case 'fresh':
-      await startOver($, handoff, isWorking)
+      if (await hasHandoffCommand($)) {
+        await runHandoff($, HANDOFF, isWorking)
+      } else {
+        await startOver($, handoff, isWorking)
+      }
 
       return
     case 'park':
-      await park($, handoff, isWorking)
+      if (await hasHandoffCommand($)) {
+        await runHandoff($, 'Park', isWorking)
+      } else {
+        await park($, handoff, isWorking)
+      }
 
       return
     default:
@@ -600,12 +653,22 @@ export async function act($: EngineInterface, key: ChoiceKey, tokens: string, ha
       $.clock.after(COMPACT_SOON_MS, () => void compact($, false))
 
       return
+    // Hand off (Start fresh where no message is set) and Park: /handoff where
+    // the handoff mod is there.
     case 'fresh':
-      await startOver($, handoff, isWorking)
+      if (handoff !== '' && (await hasHandoffCommand($))) {
+        await runHandoff($, HANDOFF, isWorking)
+      } else {
+        await startOver($, handoff, isWorking)
+      }
 
       return
     case 'park':
-      await park($, handoff, isWorking)
+      if (await hasHandoffCommand($)) {
+        await runHandoff($, 'Park', isWorking)
+      } else {
+        await park($, handoff, isWorking)
+      }
 
       return
     case 'continue':

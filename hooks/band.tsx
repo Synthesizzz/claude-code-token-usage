@@ -35,8 +35,8 @@ import {
   turnsLeft,
 } from './usage'
 import { note, trouble } from './measure'
-import { act, cacheSaid as pricing, heard, hush, pressMove, warmCache } from './notices'
-import { nextMove, payback, quietSoon } from './next'
+import { act, cacheSaid as pricing, heard, hush, knowsHandoffCommand, pressMove, warmCache } from './notices'
+import { HANDOFF_AT, nextMove, payback, quietSoon } from './next'
 import { GLYPHS, dotColor, dotHint, dotsOf, fleetRows } from './fleet'
 import type { Seen } from './next'
 import { cellsOfSplit, splitSvg } from './advice'
@@ -165,6 +165,7 @@ export async function weighMove($: EngineInterface, usage: Snapshot, at: number,
     quietSoon: quietSoon(style.quiet, at),
     isSoon,
     handoff: style.handoff,
+    hasCommand: await knowsHandoffCommand($),
     payback: payback(tokens, steps, cacheRates(model, ttl).read),
   }
 
@@ -182,7 +183,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
     const { percent } = usage
     const at = Math.max(usage.at, await read($, now))
     const style = await styleOf($, scope.base)
-    const { move, paused, ttl, learned, cachePart, idleTokens } = await weighMove($, usage, at, style, e.props.isWorking)
+    const { move, seen, paused, ttl, learned, cachePart, idleTokens } = await weighMove($, usage, at, style, e.props.isWorking)
     const press =
       move === null ? null : (
         <Button
@@ -451,7 +452,9 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
           ? 'Coloured by its share of the window, from 60% and 85%: /tokens weight 200k 400k colours it by its size.'
           : `Yellow from ${shortTokens(style.weight.warn)}, red from ${shortTokens(style.weight.full)}: /tokens weight sets the sizes.`,
       ].join(' ')
-      const hints = cacheHints(idleTokens, { ...(await pricing($, ttl, paused?.usd ?? null)), handoff: style.handoff })
+      // Under 250k the band offers no Hand off, so its hints name none either.
+      const isHandOffSize = seen.tokens !== null && seen.tokens >= HANDOFF_AT
+      const hints = cacheHints(idleTokens, { ...(await pricing($, ttl, paused?.usd ?? null)), handoff: isHandOffSize ? style.handoff : '' })
       const hinted = [
         ...(isStaying
           ? (talk?.choices ?? []).flatMap(({ key, label, hint }) => (hint === undefined ? [] : [{ scope: `${HINT}choice-${key}`, label, hint }]))
@@ -466,7 +469,9 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
                 label: move.label,
                 hint:
                   move.key === 'fresh'
-                    ? `${move.why} ${hints.fresh}`
+                    ? seen.hasCommand
+                      ? move.reason
+                      : `${move.why} ${hints.fresh}`
                     : move.key === 'compact' && cachePart?.phase === 'gone'
                       ? `${move.why} ${hints.compactLapsed}`
                       : move.reason,
