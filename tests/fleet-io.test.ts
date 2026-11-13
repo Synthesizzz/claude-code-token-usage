@@ -1,7 +1,7 @@
 import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
-import { TYPED } from './kit'
+import { beneathBand, TYPED } from './kit'
 
 // The fleet on the disk: each session's own file through its life, every
 // session's read back, the summary, and what /tokens fleet says.
@@ -75,11 +75,7 @@ const world = (on: On, files: Files, session: { id: string; refuse?: boolean; ho
       })),
     }
   })
-  on('ui.render', { component: 'AbovePrompt' }, (beneath, e) => {
-    const { Text } = beneath.ui.resolve(e)
-
-    return Text({ children: '' })
-  })
+  beneathBand(on)
 
   return { clock }
 }

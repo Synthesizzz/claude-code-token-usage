@@ -1,7 +1,7 @@
 import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
-import { TYPED } from './kit'
+import { beneathBand, TYPED } from './kit'
 
 // The band's one next move in the session: the steps it counts, Park, and
 // what /tokens next says.
@@ -42,11 +42,7 @@ const world = (on: On, at = new Date(2026, 10, 10, 12, 0).getTime()) => {
 
     return { skip: 'counted' }
   })
-  on('ui.render', { component: 'AbovePrompt' }, (beneath, e) => {
-    const { Text } = beneath.ui.resolve(e)
-
-    return Text({ children: '' })
-  })
+  beneathBand(on)
   on('turn.step', async function* (_, e) {
     yield { kind: 'stop', stopReason: 'end_turn', usage } as never
 

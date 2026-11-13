@@ -38,7 +38,7 @@ import { widthOf } from '../hooks/fit'
 import type { Fitted, Wish } from '../hooks/fit'
 import { apply, defaults, sane } from '../hooks/style'
 import type { Ledger, Share } from '../types'
-import { TYPED } from './kit'
+import { beneathBand, TYPED } from './kit'
 
 const PLUGIN = 'token-usage'
 // Noon, local time, so a test never sits on the edge of a day.
@@ -153,11 +153,7 @@ const world = (
 
     return { value: undefined }
   })
-  on('ui.render', { component: 'AbovePrompt' }, (beneath, e) => {
-    const { Text } = beneath.ui.resolve(e)
-
-    return Text({ children: '' })
-  })
+  beneathBand(on)
 
   return { kept, session }
 }

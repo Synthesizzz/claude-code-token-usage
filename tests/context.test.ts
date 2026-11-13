@@ -2,7 +2,7 @@ import type { On, SessionContextBreakdown } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
 import { appOf, contextLine, contextNews, glyphOf, kindsOf, keepSetUp, mixOf, serverColor, servers, setUpOf, shortPath, trendLine } from '../hooks/context'
-import { TYPED } from './kit'
+import { beneathBand, TYPED } from './kit'
 
 // What fills the context, as /context breaks it down: the grid, the rows, and
 // the MCP servers, memory files and skills beneath it.
@@ -215,7 +215,7 @@ const world = (on: On) => {
   const kept = new Map<string, unknown>()
   on('store.get', (_, e) => ({ value: kept.get(e.key) }))
   on('store.set', (_, e) => (kept.set(e.key, e.value), { value: undefined }))
-  on('ui.render', { component: 'AbovePrompt' }, (beneath, e) => beneath.ui.resolve(e).Text({ children: '' }))
+  beneathBand(on)
   on('ui.open', (_, e) => {
     opened.push(e.id)
 

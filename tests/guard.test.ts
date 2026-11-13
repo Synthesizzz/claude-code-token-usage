@@ -3,7 +3,7 @@ import { expect, mock, test } from 'claude-code/testing'
 
 import { turnTokens } from '../hooks/cost'
 import { failedLine, readReading, unreadLine } from '../hooks/usage'
-import { TYPED } from './kit'
+import { beneathBand, TYPED } from './kit'
 
 // The hook API is early access: what Claude Code hands a mod changes between
 // releases. A shape the mod does not know is left out and named, never drawn
@@ -33,11 +33,7 @@ const world = (on: On) => {
   on('command.register', (_, e) => ({ value: { command: e.name } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('turn.complete', (_, e) => ({ text: e.answer }))
-  on('ui.render', { component: 'AbovePrompt' }, (beneath, e) => {
-    const { Text } = beneath.ui.resolve(e)
-
-    return Text({ children: 'beneath' })
-  })
+  beneathBand(on, 'beneath')
 
   return clock
 }

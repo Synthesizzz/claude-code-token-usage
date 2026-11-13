@@ -1,5 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 import { WEIGHT, barCellsFor, contextText, contextTone, eighths, stepText } from '../hooks/usage'
+import { beneathBand } from './kit'
 
 const PLUGIN = 'token-usage'
 const SITE = { scroll: { offset: 0, bodyRows: 10 }, view: {} }
@@ -31,11 +32,7 @@ const MEASURE = {
 test('band draws the measured figures on every surface', async ($, on) => {
   mock.clock(on)
   on('session.measure', (_, e) => ({ changed: e.changed }))
-  on('ui.render', { component: 'AbovePrompt' }, (beneath, e) => {
-    const { Text } = beneath.ui.resolve(e)
-
-    return Text({ children: '' })
-  })
+  beneathBand(on)
   await $.session.measure({
     ...MEASURE,
     rateLimits: [...MEASURE.rateLimits],
@@ -55,11 +52,7 @@ test('band draws the measured figures on every surface', async ($, on) => {
 test('band keeps what the hooks beneath it draw', async ($, on) => {
   mock.clock(on)
   on('session.measure', (_, e) => ({ changed: e.changed }))
-  on('ui.render', { component: 'AbovePrompt' }, (beneath, e) => {
-    const { Text } = beneath.ui.resolve(e)
-
-    return Text({ children: 'beneath' })
-  })
+  beneathBand(on, 'beneath')
   await $.session.measure({
     ...MEASURE,
     rateLimits: [...MEASURE.rateLimits],

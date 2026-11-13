@@ -5,7 +5,7 @@ import type { TestBody } from 'claude-code/testing'
 import { DEFAULT_TTL, WARM_TEXT, cacheCells, cacheClock, cacheHints, cacheLine, cacheNotice, cachePhase, cacheRates, cacheWord, hasLapsedActions, judgePause, keepPauses, learnedTtl, nextChange } from '../hooks/cache'
 import { CACHE_BAR_MIN_PX, CACHE_BAR_PX, fit, told, widthOf } from '../hooks/fit'
 import type { Wish } from '../hooks/fit'
-import { TYPED } from './kit'
+import { beneathBand, TYPED } from './kit'
 
 // Warn before the prompt cache lapses: the time it lasts is learned from the
 // pauses themselves, as the first response after each says what it read.
@@ -196,11 +196,7 @@ const world = (on: On, stored: Record<string, unknown> = {}) => {
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
   on('session.measure', (_, e) => ({ changed: e.changed }))
   on('turn.complete', (_, e) => ({ text: e.answer }))
-  on('ui.render', { component: 'AbovePrompt' }, (beneath, e) => {
-    const { Text } = beneath.ui.resolve(e)
-
-    return Text({ children: '' })
-  })
+  beneathBand(on)
   on('turn.step', async function* (_, e) {
     const used = answers.get(e.index) ?? usage(2000, 0, 0)
 

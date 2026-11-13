@@ -2,7 +2,7 @@ import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
 import { PALETTES, apply, defaults, paletteFor, sane, words } from '../hooks/style'
-import { TYPED } from './kit'
+import { beneathBand, TYPED } from './kit'
 
 const PLUGIN = 'token-usage'
 const NOW = 1_800_000_000_000
@@ -69,11 +69,7 @@ const world = (
 
     return { value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
   })
-  on('ui.render', { component: 'AbovePrompt' }, (beneath, e) => {
-    const { Text } = beneath.ui.resolve(e)
-
-    return Text({ children: '' })
-  })
+  beneathBand(on)
 
   return kept
 }

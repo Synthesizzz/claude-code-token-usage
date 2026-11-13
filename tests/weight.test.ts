@@ -1,7 +1,7 @@
 import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
-import { TYPED } from './kit'
+import { beneathBand, TYPED } from './kit'
 
 // The band says the context by its weight: its size, coloured from 200k and
 // 400k, and on the desktop what each step reads again at the model's price.
@@ -29,11 +29,7 @@ const world = (on: On) => {
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 1_000_000 }, rateLimits: [] } }))
   on('session.measure', (_, e) => ({ changed: e.changed }))
   on('turn.complete', (_, e) => ({ text: e.answer }))
-  on('ui.render', { component: 'AbovePrompt' }, (beneath, e) => {
-    const { Text } = beneath.ui.resolve(e)
-
-    return Text({ children: '' })
-  })
+  beneathBand(on)
   on('turn.step', async function* (_, e) {
     yield { kind: 'stop', stopReason: 'end_turn', usage } as never
 

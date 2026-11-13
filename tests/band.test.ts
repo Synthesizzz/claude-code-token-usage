@@ -1,5 +1,6 @@
 import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
+import { beneathBand } from './kit'
 
 const PLUGIN = 'token-usage'
 const NOW = 1_800_000_000_000
@@ -48,11 +49,7 @@ const RESETS = {
 // The engine beneath the mod: a clock the test moves, and an empty band.
 const world = (on: On) => {
   on('session.measure', (_, e) => ({ changed: e.changed }))
-  on('ui.render', { component: 'AbovePrompt' }, (beneath, e) => {
-    const { Text } = beneath.ui.resolve(e)
-
-    return Text({ children: '' })
-  })
+  beneathBand(on)
 
   mock.store(on)
 

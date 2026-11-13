@@ -7,7 +7,7 @@ import { widthOf } from '../hooks/fit'
 import type { Fitted, Wish } from '../hooks/fit'
 import { apply, defaults } from '../hooks/style'
 import type { Notice } from '../types'
-import { TYPED } from './kit'
+import { beneathBand, TYPED } from './kit'
 
 const PLUGIN = 'token-usage'
 const NOW = 1_800_000_000_000
@@ -72,11 +72,7 @@ const world = (
 
     return { value: undefined }
   })
-  on('ui.render', { component: 'AbovePrompt' }, (beneath, e) => {
-    const { Text } = beneath.ui.resolve(e)
-
-    return Text({ children: '' })
-  })
+  beneathBand(on)
 
   return clock
 }

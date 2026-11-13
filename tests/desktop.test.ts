@@ -2,7 +2,7 @@ import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
 import { barSvg, paceSvg, paletteOf, ringSvg } from '../hooks/svg'
-import { TYPED } from './kit'
+import { beneathBand, TYPED } from './kit'
 
 const PLUGIN = 'token-usage'
 const NOW = 1_800_000_000_000
@@ -31,11 +31,7 @@ const DEFAULTS = { success: '#3a9a53', warning: '#b07f00', error: '#e04f63' }
 const world = (on: On) => {
   mock.clock(on, { now: NOW })
   on('session.measure', (_, e) => ({ changed: e.changed }))
-  on('ui.render', { component: 'AbovePrompt' }, (beneath, e) => {
-    const { Text } = beneath.ui.resolve(e)
-
-    return Text({ children: 'beneath' })
-  })
+  beneathBand(on, 'beneath')
 }
 
 test('ringSvg draws the arc as long as the percentage, in the colour of its level', () => {

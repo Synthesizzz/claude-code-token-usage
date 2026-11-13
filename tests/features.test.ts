@@ -5,7 +5,7 @@ import { addProject, byProject, dayOf, keepTurn, saneProjects, saneTurns, shortT
 import { apply, defaults, sane } from '../hooks/style'
 import { clockAt, isQuiet, turnsLeft } from '../hooks/usage'
 import type { Style } from '../types'
-import { TYPED } from './kit'
+import { beneathBand, TYPED } from './kit'
 
 const PLUGIN = 'token-usage'
 const MINUTE = 60_000
@@ -150,11 +150,7 @@ const world = (on: On, now = NOON, stored: Readonly<Record<string, unknown>> = {
 
     return { value: undefined }
   })
-  on('ui.render', { component: 'AbovePrompt' }, (beneath, e) => {
-    const { Text } = beneath.ui.resolve(e)
-
-    return Text({ children: '' })
-  })
+  beneathBand(on)
 
   return { kept, session, seen, clock }
 }
