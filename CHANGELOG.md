@@ -2,6 +2,13 @@
 
 What each version of token-usage added or changed, newest first. Versions before 0.5.2 came before the repository, and 0.10 to 0.12 have no commit of their own: their work is in 0.13.0.
 
+## 0.52.0
+
+- Before any pause has taught it, the cache lasts the default hour: the band counts down and the crab warns from the first turn, where they said nothing until a pause was learned. The first pause that lapsed sooner replaces the hour with 5 minutes, as before; no setting.
+- The pane says when the hour is the default (`cache lapses after ~1h idle · the default until a pause says otherwise`), and says it from the start, not only once a pause is seen.
+- A resumed session the engine called lapsed still shows lapsed where nothing is learned, and a ping's pause is judged short only against a learned time, not the default.
+- A fleet file with no cache time reads the same default hour, from one place.
+
 ## 0.51.2
 
 - A started session is named by its task also when the app puts a reminder block before the background, which is how the desktop app opens every such session. 0.51.1 named it by the background's first words.

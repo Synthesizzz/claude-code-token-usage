@@ -381,12 +381,14 @@ export const register: Register = (on, options) => {
 
     if (since !== null && used !== null) {
       const pause = judgePause(startedAt - since.at, since.tokens, used, startedAt)
-      const ttl = learnedTtl(await read($, pauses)).ttl
+      const { ttl, isLearned } = learnedTtl(await read($, pauses))
 
       // A pause begun at a quiet ping teaches nothing of how long the cache
-      // lasts; lapsed short of that time, it says the ping did not hold it.
+      // lasts; lapsed short of the learned time, it says the ping did not hold
+      // it. Short of the default hour it says nothing: a five-minute cache
+      // not learned yet lapses there too.
       if (since.afterFork === true) {
-        if (pause !== null && !pause.isKept && ttl !== null && pause.gap < ttl) {
+        if (pause !== null && !pause.isKept && isLearned && pause.gap < ttl) {
           await forkFellShort($)
         }
       } else if (pause !== null) {

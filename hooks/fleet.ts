@@ -3,7 +3,7 @@
 // small file of its own; these are the rules that read them.
 
 import type { FleetEntry } from '../types'
-import { cachePhase, cacheRates } from './cache'
+import { DEFAULT_TTL, cachePhase, cacheRates } from './cache'
 import { shortTokens } from './cost'
 import { NO_PROJECT } from './state'
 
@@ -14,8 +14,9 @@ const HOUR_MS = 60 * MINUTE_MS
 // start of the turn it runs) is this recent: one closed without a goodbye
 // drops out after it.
 export const OPEN_MS = 6 * HOUR_MS
-// A cache whose time is not learned yet lasts the hour, a subscription's own.
-export const FLEET_TTL = HOUR_MS
+// A file that names no cache time (written before 0.52.0) gets the default
+// hour, the same that stands in a session until its pauses say otherwise.
+export const FLEET_TTL = DEFAULT_TTL
 // The prompt's share of a label, in terminal cells.
 export const LABEL_CELLS = 24
 // The band draws this many sessions as dots at most, and says the rest.

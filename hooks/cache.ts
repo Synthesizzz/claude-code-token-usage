@@ -14,6 +14,11 @@ import type { Choice } from './advice'
 // shorter where it holds both: a warning early beats one too late. Where it
 // holds neither, the range's own end stands; with no lapse seen yet, only a
 // range that rules out the one leaves the other.
+//
+// Until the pauses settle it, the cache lasts the hour: the time a
+// subscription's responses write, and one a hook cannot read (its usage gives
+// the cache write's total, not the time). A pause that lapsed sooner replaces
+// it with five minutes, so the hour needs no setting.
 
 export type Pause = { gap: number; isKept: boolean; at: number }
 type Read = { input: number; cacheRead: number; cacheWrite: number }
@@ -33,6 +38,8 @@ const NEAR_SHARE = 0.4
 const MINUTE_MS = 60_000
 const HOUR_MS = 60 * MINUTE_MS
 const TTLS = [5 * MINUTE_MS, HOUR_MS]
+// How long the cache lasts where the pauses have not said yet.
+export const DEFAULT_TTL = HOUR_MS
 
 export const judgePause = (gap: number, before: number | null, read: Read, at: number): Pause | null => {
   const input = read.input + read.cacheRead + read.cacheWrite
@@ -58,7 +65,11 @@ export const sanePauses = (value: unknown): Pause[] =>
       : []
   })
 
-export const learnedTtl = (pauses: readonly Pause[]) => {
+// The cache's time, and whether the pauses taught it (`isLearned`) or it is
+// the hour that stands until they do.
+export type Learned = { ttl: number; isLearned: boolean; kept: number; pauses: number }
+
+export const learnedTtl = (pauses: readonly Pause[]): Learned => {
   const kept = Math.max(0, ...pauses.filter(({ isKept }) => isKept).map(({ gap }) => gap))
   // A lapse under a pause that kept the cache was something else: a change
   // early in the conversation, not the time.
@@ -67,7 +78,7 @@ export const learnedTtl = (pauses: readonly Pause[]) => {
   const held = TTLS.filter(ttl => ttl >= kept && (lapsed === null || ttl <= lapsed))
   const ttl = lapsed === null ? (held.length === 1 && kept > 0 ? (held[0] ?? null) : null) : (held[0] ?? lapsed)
 
-  return { ttl, kept, pauses: pauses.length }
+  return { ttl: ttl ?? DEFAULT_TTL, isLearned: ttl !== null, kept, pauses: pauses.length }
 }
 
 // A time said short: minutes under the hour, hours and minutes past it.
@@ -234,14 +245,14 @@ export const hasLapsedActions = (said: { phase: 'calm' | 'near' | 'gone' } | nul
 // The cache is warned of this long before it lapses, where it lasts longer.
 export const CACHE_WARN_MS = NEAR_MS
 
-export const cacheLine = (learned: { ttl: number | null; kept: number; pauses: number }) => {
-  if (learned.pauses === 0) {
-    return null
-  }
-
+export const cacheLine = (learned: Learned) => {
   const plural = `${learned.pauses} ${learned.pauses === 1 ? 'pause' : 'pauses'}`
 
-  return learned.ttl !== null
-    ? `cache lapses after ~${span(learned.ttl)} idle · learned from ${plural}`
-    : `cache kept through ${span(learned.kept)} idle so far · ${plural}`
+  if (learned.isLearned) {
+    return `cache lapses after ~${span(learned.ttl)} idle · learned from ${plural}`
+  }
+
+  const after = `cache lapses after ~${span(learned.ttl)} idle · the default until a pause says otherwise`
+
+  return learned.pauses === 0 ? after : `${after} · kept through ${span(learned.kept)} so far, ${plural}`
 }

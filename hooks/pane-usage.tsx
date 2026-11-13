@@ -305,7 +305,7 @@ export async function drawUsagePane($: Parameters<DrawUsagePaneHook>[0], e: Para
               <Text color={shareTone(share)}>{`${share}% of input`}</Text>
             </Box>
           )}
-          {learned !== null && <Text dimColor wrap="wrap">{`  ${learned}`}</Text>}
+          <Text dimColor wrap="wrap">{`  ${learned}`}</Text>
           {spread.length > 0 && (
             <Box flexDirection="column">
               <Text> </Text>
@@ -387,7 +387,7 @@ export async function drawUsagePane($: Parameters<DrawUsagePaneHook>[0], e: Para
             {picture(shareSvg(share, palette, wide, shareTone(share)), { width: wide, height: SHARE_PX.height })}
           </Box>
         )}
-        {learned !== null && <Text dimColor wrap="wrap">{learned}</Text>}
+        <Text dimColor wrap="wrap">{learned}</Text>
         {turn !== null && (
           <Text dimColor wrap="wrap">
             {`last turn ${shortTokens(turnTotal(turn))} · in ${grouped(turn.input)} · out ${grouped(turn.output)} · cache read ${grouped(turn.cacheRead)} · write ${grouped(turn.cacheWrite)}`}

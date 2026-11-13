@@ -131,13 +131,13 @@ export async function weighMove($: EngineInterface, usage: Snapshot, at: number,
   const isSoon = toGo !== null && toGo <= SOON_TURNS
   // While no turn runs, the cache counts down the pause since the last.
   const paused = isWorking ? null : await read($, idleSince)
-  const ttl = learnedTtl(await read($, pauses)).ttl
+  const { ttl, isLearned } = learnedTtl(await read($, pauses))
   // A test of the lapse shows it for a minute, for the context as it is.
   const isTestLapse = !isWorking && (await read($, cacheTest)) > at
   // A resumed session the engine called lapsed is lapsed, where the cache's
   // time is not learned yet.
   const cachePart =
-    isTestLapse || (paused?.lapsed === true && ttl === null)
+    isTestLapse || (paused?.lapsed === true && !isLearned)
       ? { phase: 'gone' as const, left: 0 }
       : paused === null
         ? null

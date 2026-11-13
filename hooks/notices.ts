@@ -145,9 +145,11 @@ export async function beginPause(
   await update($, idleSince, () => ({ at, tokens, ...extra }))
   endPause()
 
-  const ttl = learnedTtl(await read($, pauses)).ttl
+  const { ttl, isLearned } = learnedTtl(await read($, pauses))
 
-  if (ttl === null) {
+  // A resumed session the engine called lapsed has nothing to count down,
+  // where the cache's time is the default hour and not learned.
+  if (extra.lapsed === true && !isLearned) {
     return
   }
 
@@ -206,7 +208,7 @@ export async function keepWarm($: EngineInterface, isRetry = false) {
     const ttl = learnedTtl(await read($, pauses)).ttl
     const isBusy = reply.reason === 'api-error' && (reply.status === null || reply.status === 429 || reply.status >= 500)
 
-    if (isBusy && !isRetry && ttl !== null && at + RETRY_MS < held.at + ttl) {
+    if (isBusy && !isRetry && at + RETRY_MS < held.at + ttl) {
       $.ui.toast('The API is busy: Keep warm tries again in 30 seconds.')
       $.clock.after(RETRY_MS, () => void keepWarm($, true))
 
@@ -267,13 +269,12 @@ export async function cacheSaid($: EngineInterface, ttl: number | null, usd: num
 const cacheTest = atom({ plugin: 'token-usage', key: 'cacheTest' } as const, 0)
 
 const TEST_LAPSE_MS = 60_000
-const FALLBACK_TTL = 5 * 60_000
 
 // `/tokens alerts test cache`: the warning as it comes two minutes before a
 // lapse, for the context as it is now, its buttons standing as long.
-export async function testCache($: EngineInterface, base: Style, ttl: number | null) {
+export async function testCache($: EngineInterface, base: Style, ttl: number) {
   const style = await styleOf($, base)
-  const notice = cacheNotice(CACHE_WARN_MS, ttl ?? FALLBACK_TTL, (await read($, usage))?.tokens ?? null, await cacheSaid($, ttl))
+  const notice = cacheNotice(CACHE_WARN_MS, ttl,(await read($, usage))?.tokens ?? null, await cacheSaid($, ttl))
 
   if (style.hidden.includes('crab') || style.hidden.includes('alerts')) {
     $.ui.toast(notice.line)
