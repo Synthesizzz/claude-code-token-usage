@@ -2,6 +2,12 @@
 
 What each version of token-usage added or changed, newest first. Versions before 0.5.2 came before the repository, and 0.10 to 0.12 have no commit of their own: their work is in 0.13.0.
 
+## 0.58.0
+
+- The cache's time is read, not only learned: after a main turn that wrote to the cache, a small script of the mod's own (`tools/last-ttl.mjs`, run with `node`) reads the end of the session's transcript and finds how long the last reply's cache write lasts, 5 minutes or an hour. That time wins over the one learned from the pauses and over the default hour, so a session on a five-minute cache counts down five minutes from its first turn. The pointer on the countdown and the pane say `cache lapses after ~1h idle · as the last reply set it`.
+- It reads at most the file's last 4 MB, passes over a subagent's replies, and gives up after three seconds. Where it finds nothing, or `node` is not on the PATH, it says nothing and the pauses' time stands. It uses no AI and sends nothing: it reads a file on your machine, and the mod only draws what it found.
+- A resumed session the engine calls lapsed stays lapsed where the pauses have not taught the cache's time.
+
 ## 0.57.0
 
 - In the desktop app the usage card folds to its figures (the context and the windows) when it has nothing else to say, and a fold button (▾ / ▸) at the end of its row opens or folds it. It opens on its own when it has news: the crab is out with a notice, the cache has lapsed, what fills the context says there is something to do, quiet hours hold, or the mod cannot read a figure. The cache's countdown and the move's button are not news, so in a calm pause the card stays folded and Compact sits inside it.
