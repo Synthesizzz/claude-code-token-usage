@@ -577,7 +577,8 @@ export const register: Register = (on, options) => {
     }
 
     if (e.agentId === undefined) {
-      // Whether Hand off and Park can run /handoff, for the band to read.
+      // Whether the handoff mod's /handoff is there, for the band to read: it
+      // hands off nowhere then.
       await hasHandoffCommand($)
 
       const called = tools

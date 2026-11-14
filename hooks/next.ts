@@ -102,7 +102,8 @@ export type Seen = {
   quietSoon: boolean
   isSoon: boolean
   handoff: string
-  // The handoff mod's /handoff is there: Hand off and Park run it.
+  // The handoff mod's /handoff is there: its card hands off from 250k, so the
+  // band offers no move there, and Hand off and Park nowhere.
   hasCommand: boolean
   payback: number | null
 }
@@ -139,14 +140,18 @@ export const nextText = (
 export const nextMove = (seen: Seen): Move | null => {
   const { tokens, percent, weight, handoff } = seen
   const size = tokens === null ? `${Math.round(percent ?? 0)}%` : shortTokens(tokens)
-  // A way to hand off (a message, or /handoff) and a context worth it.
-  const isHanded = (handoff !== '' || seen.hasCommand) && tokens !== null && tokens >= HANDOFF_AT
-  const handsOff = seen.hasCommand
-    ? 'Hand off runs /handoff: it writes and saves a handoff, then Start fresh opens a new chat with it.'
-    : 'Hand off sends your hand-off message for a fresh session.'
-  const parks = seen.hasCommand
-    ? `Park runs /handoff before you leave: the handoff is written and saved while ${size} is still cached.`
-    : `Park sends your hand-off message, then compacts: the next turn reads a summary, not ${size}.`
+  const isHandOffSize = tokens !== null && tokens >= HANDOFF_AT
+
+  // From 250k the handoff mod's card is the one move (Decisions 2026-11-14):
+  // the band offers none, not even Compact.
+  if (seen.hasCommand && isHandOffSize) {
+    return null
+  }
+
+  // A hand-off message, no handoff mod, and a context worth it.
+  const isHanded = handoff !== '' && !seen.hasCommand && isHandOffSize
+  const handsOff = 'Hand off sends your hand-off message for a fresh session.'
+  const parks = `Park sends your hand-off message, then compacts: the next turn reads a summary, not ${size}.`
   const isFull = isCrowded(tokens, percent, weight)
   const move = (key: MoveKey, label: string, why: string, then: string, isPrimary = false): Move => ({
     key,

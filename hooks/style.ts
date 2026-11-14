@@ -74,7 +74,7 @@ const HELP = [
   `  parts: show|hide <${PARTS.join('|')}>`,
   `  alerts: alerts <on|off|${NOTIFY.join('|')}>, alerts 60 <on|off>, alerts popup <on|off>, alerts privacy <on|off>, alerts quiet <from-to|off>`,
   '  budgets: budget <dollars a day|off>, budget week <dollars|off>, budget month <dollars|off>, budget project <name|here> <dollars|off>',
-  '  hand off: handoff <text|off>, the message Hand off and Park send as your own; unset, the band compacts instead',
+  '  hand off: handoff <text|off>, the message Hand off and Park send as your own; unset, the band compacts instead; with the handoff mod there, it is not sent',
   '  context: weight <warn> <full>|off, the sizes that turn the context yellow and red (200k 400k); off colours it by its share of the window',
   '  data: export, tidy [now], reset',
   'checks:',

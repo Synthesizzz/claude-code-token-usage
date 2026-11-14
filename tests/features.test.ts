@@ -718,6 +718,57 @@ test("with a handoff set, a stop offers Hand off, a press sends the message as t
   expect(submitted).toEqual([{ text: 'Hand off now', asUser: true }])
 })
 
+// Decisions 2026-11-14: where the handoff mod is there, token-usage never
+// hands off; a message set is not sent, and a stop offers Start fresh.
+test('with /handoff there, a stop offers Start fresh though a handoff is set, and a press clears and sends nothing', async ($, on) => {
+  world(on, NOON)
+  const submitted: string[] = []
+  const ran: string[] = []
+  const sizes = new Map<number, number>()
+
+  on('turn.start', (_, e) => ({ turnId: e.turnId }))
+  on('turn.abort', () => ({ value: undefined }))
+  on('prompt.submit', (_, e) => (submitted.push(e.text), { text: e.text }) as never)
+  on('command.list', () => ({ value: [{ name: 'handoff', description: 'Write a handoff', source: 'plugin', plugin: 'handoff' }] }) as never)
+  on('command.run', { command: 'handoff' }, () => (ran.push('/handoff'), { text: 'building' }))
+  on('command.run', { command: 'clear' }, () => (ran.push('/clear'), { text: '' }))
+  on('turn.step', async function* (_, e) {
+    const usage = { model: 'm', input_tokens: 0, output_tokens: 0, cache_read_input_tokens: sizes.get(e.index) ?? 0, cache_creation_input_tokens: 0 }
+
+    yield { kind: 'stop', stopReason: 'end_turn', usage } as never
+
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage }
+  })
+  await $.session.start(START)
+  await $.command.run({ ...TYPED, command: 'tokens', args: 'handoff Hand off now' })
+
+  for (const id of ['t1', 't2', 't3']) {
+    await $.turn.complete(turn(id))
+  }
+
+  await $.turn.start({ turnId: 'main-1', text: 'go' } as never)
+  sizes.set(0, 400_000)
+
+  const stream = $.turn.step(step(0, 400_000) as never)
+  let read = await stream.next()
+
+  while (read.done !== true) {
+    read = await stream.next()
+  }
+
+  const heavy = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...BAND })
+
+  await heavy.press({ key: 'choice-stop' })
+  await heavy.unmount()
+
+  const after = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...BAND })
+
+  expect((await after.find({ type: 'Button', key: 'choice-fresh' }))?.props.label).toBe('Start fresh')
+  await after.press({ key: 'choice-fresh' })
+  expect(ran).toEqual(['/clear'])
+  expect(submitted).toEqual([])
+})
+
 test('a pressed choice sends its notice away at once, and Compact runs once the press has answered', async ($, on) => {
   const { clock } = world(on, NOON)
   const sizes = new Map<number, number>()

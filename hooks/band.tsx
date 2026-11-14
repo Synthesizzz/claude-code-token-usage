@@ -184,6 +184,9 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
     const at = Math.max(usage.at, await read($, now))
     const style = await styleOf($, scope.base)
     const { move, seen, paused, ttl, learned, cachePart, idleTokens } = await weighMove($, usage, at, style, e.props.isWorking)
+    // Where the handoff mod is there, the band never hands off: the message
+    // set is not sent, and Start fresh stands for Hand off.
+    const handoff = seen.hasCommand ? '' : style.handoff
     const press =
       move === null ? null : (
         <Button
@@ -191,7 +194,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
           label={move.label}
           {...(move.isPrimary ? { variant: 'primary' as const } : {})}
           hover={{ scope: HINT_MOVE }}
-          onPress={() => void pressMove($, move.key, style.handoff, e.props.isWorking)}
+          onPress={() => void pressMove($, move.key, handoff, e.props.isWorking)}
         />
       )
     const action = move?.label ?? null
@@ -435,7 +438,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
           hotkey={String(index + 1)}
           {...(index === 0 ? { variant: 'primary' as const } : {})}
           {...(hint === undefined ? {} : { hover: { scope: `${HINT}choice-${key}` } })}
-          onPress={() => act($, key as ChoiceKey, talk?.bar.label ?? '', style.handoff, e.props.isWorking)}
+          onPress={() => act($, key as ChoiceKey, talk?.bar.label ?? '', handoff, e.props.isWorking)}
         />
       ))
       const split = talk?.split ?? []
@@ -454,7 +457,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
       ].join(' ')
       // Under 250k the band offers no Hand off, so its hints name none either.
       const isHandOffSize = seen.tokens !== null && seen.tokens >= HANDOFF_AT
-      const hints = cacheHints(idleTokens, { ...(await pricing($, ttl, paused?.usd ?? null)), handoff: isHandOffSize ? style.handoff : '' })
+      const hints = cacheHints(idleTokens, { ...(await pricing($, ttl, paused?.usd ?? null)), handoff: isHandOffSize ? handoff : '' })
       const hinted = [
         ...(isStaying
           ? (talk?.choices ?? []).flatMap(({ key, label, hint }) => (hint === undefined ? [] : [{ scope: `${HINT}choice-${key}`, label, hint }]))
@@ -469,9 +472,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
                 label: move.label,
                 hint:
                   move.key === 'fresh'
-                    ? seen.hasCommand
-                      ? move.reason
-                      : `${move.why} ${hints.fresh}`
+                    ? `${move.why} ${hints.fresh}`
                     : move.key === 'compact' && cachePart?.phase === 'gone'
                       ? `${move.why} ${hints.compactLapsed}`
                       : move.reason,
@@ -733,7 +734,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
                         label={`${index + 1} ${label}`}
                         hotkey={String(index + 1)}
                         {...(index === 0 ? { variant: 'primary' as const } : {})}
-                        onPress={() => act($, key as ChoiceKey, talk.bar.label, style.handoff, e.props.isWorking)}
+                        onPress={() => act($, key as ChoiceKey, talk.bar.label, handoff, e.props.isWorking)}
                       />
                     ))}
                     <Button key="crab-ok" label="OK" onPress={() => hush($)} />

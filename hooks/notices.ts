@@ -474,23 +474,6 @@ export async function knowsHandoffCommand($: EngineInterface) {
   return (await read($, handoffCommand))?.has === true
 }
 
-// Hand off and Park where the handoff mod is there: /handoff writes the
-// handoff, saves it and offers Start fresh on its own card. A turn that runs
-// would hold it back, so the press waits, as Compact does.
-export async function runHandoff($: EngineInterface, label: string, isWorking: boolean) {
-  if (isWorking) {
-    $.ui.toast(`Claude is still working: press ${label} again when the turn ends.`)
-
-    return
-  }
-
-  try {
-    await $.command.run({ command: 'handoff', args: '' })
-  } catch (error) {
-    $.ui.toast(`${label} did not run /handoff: ${error instanceof Error ? error.message : String(error)}`)
-  }
-}
-
 // What a Start fresh button does: clear the conversation, as ever; or, where
 // the person set a hand-off message, send it as their own. A turn that runs
 // would take it for the next prompt, so it waits, as Compact does.
@@ -550,21 +533,13 @@ export async function pressMove($: EngineInterface, key: MoveKey, handoff: strin
       $.ui.toast('Compacting when this turn ends.')
 
       return
-    // The band's Hand off and Park: /handoff where the handoff mod is there.
+    // The band's Hand off and Park, offered only where the handoff mod is not.
     case 'fresh':
-      if (await hasHandoffCommand($)) {
-        await runHandoff($, HANDOFF, isWorking)
-      } else {
-        await startOver($, handoff, isWorking)
-      }
+      await startOver($, handoff, isWorking)
 
       return
     case 'park':
-      if (await hasHandoffCommand($)) {
-        await runHandoff($, 'Park', isWorking)
-      } else {
-        await park($, handoff, isWorking)
-      }
+      await park($, handoff, isWorking)
 
       return
     default:
@@ -653,22 +628,14 @@ export async function act($: EngineInterface, key: ChoiceKey, tokens: string, ha
       $.clock.after(COMPACT_SOON_MS, () => void compact($, false))
 
       return
-    // Hand off (Start fresh where no message is set) and Park: /handoff where
-    // the handoff mod is there.
+    // Hand off (Start fresh where no message is set, or the handoff mod is
+    // there: the band passes no message then) and Park.
     case 'fresh':
-      if (handoff !== '' && (await hasHandoffCommand($))) {
-        await runHandoff($, HANDOFF, isWorking)
-      } else {
-        await startOver($, handoff, isWorking)
-      }
+      await startOver($, handoff, isWorking)
 
       return
     case 'park':
-      if (await hasHandoffCommand($)) {
-        await runHandoff($, 'Park', isWorking)
-      } else {
-        await park($, handoff, isWorking)
-      }
+      await park($, handoff, isWorking)
 
       return
     case 'continue':
