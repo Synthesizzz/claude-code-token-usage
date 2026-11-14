@@ -126,6 +126,14 @@ const SPLIT_PX = 220
 const SPLIT_CELLS = 20
 // The terminal's second row starts under the context's bar, and names it.
 const SECOND_INDENT = 6
+// On the desktop the row is a card of its own in the band, one of each
+// plugin's: a round dim frame and a column of padding each side take four
+// columns, and the frame's two edges with the row kept from the card beneath
+// take three rows. A terminal's band is short of rows (the crab needs five), so
+// it draws no frame.
+const FRAME_COLUMNS = 4
+const FRAME_ROWS = 3
+const FRAME = { borderStyle: 'round', borderDimColor: true, paddingX: 1, marginBottom: 1 } as const
 const MIX_WORD = ' context'
 
 type DrawBandHook = MatchedHook<'ui.render', { component: 'AbovePrompt' }>
@@ -180,6 +188,10 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
     }
 
     const { Box, Text, Button } = $.ui.resolve(e)
+    // What the row lays out in: the band less its card's frame, where it has one.
+    const isFramed = e.surface === 'desktop'
+    const bodyColumns = e.props.bodyColumns - (isFramed ? FRAME_COLUMNS : 0)
+    const maxRows = e.props.maxRows - (isFramed ? FRAME_ROWS : 0)
     const { percent } = usage
     const at = Math.max(usage.at, await read($, now))
     const style = await styleOf($, scope.base)
@@ -229,7 +241,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
     const columns =
       e.surface === 'desktop'
         ? Number.POSITIVE_INFINITY
-        : e.props.bodyColumns - (action === null ? 0 : action.length + 7) - (isAsleep ? 1 : 0)
+        : bodyColumns - (action === null ? 0 : action.length + 7) - (isAsleep ? 1 : 0)
     // The band says what the day has cost, in every session; the pane has
     // the session's own total.
     const kept = await read($, ledger)
@@ -379,7 +391,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
             : {}),
         ...(counting === null ? {} : { cache: { text: counting.text, bar: CACHE_BAR_PX, button: hasWarm ? WARM : null } }),
       }
-      const fitted = fit(wish, e.props.bodyColumns)
+      const fitted = fit(wish, bodyColumns)
       const isSnug = fitted.layout !== style.layout
       const named = isSnug ? snug : wished
       const ringed = ringSvg(percent, named.context, e.props.isWorking, palette, {
@@ -396,6 +408,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
             ? { drawn: idle, width: idle.width, height: idle.height }
             : { drawn: ringed, width: RING_PX, height: RING_PX }
 
+      // It names the band as wide as the person sees it, frame and all.
       scope.fitting = told(wish, fitted, e.props.bodyColumns)
       const figure = (
         drawn: { source: string; alt: string },
@@ -496,11 +509,10 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
       // width (squeezed, its text spills over the next one), and a row still
       // too wide wraps.
       return (
-        // A background of the person's own fills the band inside the app's frame:
-        // to its sides, a column past the band's own each side, the padding giving
-        // the row its width back. The engine clips rows at the band's top and
-        // bottom, so the frame's strips there stay.
-        <Box flexDirection="column" {...(style.background === null ? {} : { backgroundColor: style.background, marginX: -1, paddingX: 1, paddingY: 1 })}>
+        // The row is its own card; a background of the person's own fills that
+        // card alone, so the other plugins' cards keep the band's colour.
+        <Box flexDirection="column">
+        <Box key="usage-card" flexDirection="column" {...FRAME} {...(style.background === null ? {} : { backgroundColor: style.background, paddingY: 1 })}>
           {hinted.map(({ scope, label, hint }) => (
             <Box key={scope} flexDirection="column" display="none" hover={{ scope, display: 'flex' }} marginBottom={1}>
               <Text weight="semibold">{label}</Text>
@@ -610,6 +622,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
           {problems.map(line => (
             <Text dimColor>{line}</Text>
           ))}
+        </Box>
           {beneath}
         </Box>
       )
@@ -623,8 +636,8 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
     // With a second row to spare, what fills the context, the cache and the
     // word of what to do go beneath the figures; without, they go after them
     // where they fit, the most useful first.
-    const hasSecondRow = e.props.maxRows >= 2
-    const secondColumns = e.props.bodyColumns - SECOND_INDENT
+    const hasSecondRow = maxRows >= 2
+    const secondColumns = bodyColumns - SECOND_INDENT
     let taken = bandWidth(terminalBand) + (barCells === 0 ? 0 : barCells + 1 + (barCells - 1) * terminalBand.limits.length)
     let below = -3
     const room = (wide: number, gap = 3) => {
@@ -675,7 +688,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
         </Text>
       ))
     const hasCrabRows =
-      e.props.maxRows >= CRAB_MIN_ROWS && e.props.bodyColumns >= CRAB_MIN_COLUMNS
+      maxRows >= CRAB_MIN_ROWS && bodyColumns >= CRAB_MIN_COLUMNS
     const crabDrawn = CRAB_ROWS.map(row => <Text color={talk === null ? undefined : toneOf(talk.kind)}>{row}</Text>)
     const second = hasSecondRow && (hasMix || hasCount || hasCache || hasNews || hasFleet) ? (
       <Box gap={3} paddingLeft={SECOND_INDENT}>
@@ -694,6 +707,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
 
     return (
       <Box flexDirection="column">
+      <Box key="usage-card" flexDirection="column">
         {/* The words and buttons stand where the crab has no room beside them. */}
         {talk !== null && (hasCrabRows || isStaying) && (
           <Box gap={2}>
@@ -741,7 +755,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
                   </Box>
                 )}
                 {/* Narrow, they would wrap the figures out of view. */}
-                {e.props.maxRows >= HINT_MIN_ROWS && e.props.bodyColumns >= CRAB_MIN_COLUMNS &&
+                {maxRows >= HINT_MIN_ROWS && bodyColumns >= CRAB_MIN_COLUMNS &&
                   (talk.choices ?? []).map(({ key, label, hint }, index) =>
                     hint === undefined ? null : (
                       <Text key={`hint-${key}`} dimColor wrap="wrap">
@@ -793,6 +807,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
         {problems.map(line => (
           <Text dimColor>{line}</Text>
         ))}
+      </Box>
         {beneath}
       </Box>
     )

@@ -139,12 +139,15 @@ test('the desktop band draws each window as a double ring, its countdown in bold
   expect(await ui.find({ type: 'Text', text: 'beneath' })).toBeDefined()
 })
 
+// The row lays out inside its card's frame, four columns narrower than the
+// band: `narrow(n)` is a band whose row has n columns.
+const FRAME_COLUMNS = 4
 const narrow = (bodyColumns: number) =>
   ({
     plugin: PLUGIN,
     surface: 'desktop',
     component: 'AbovePrompt',
-    props: { ...band(false).props, bodyColumns },
+    props: { ...band(false).props, bodyColumns: bodyColumns + FRAME_COLUMNS },
   }) as const
 
 test('a desktop band short of room drops the cost and the words before any figure', async ($, on) => {

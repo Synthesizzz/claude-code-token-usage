@@ -2,6 +2,10 @@
 
 What each version of token-usage added or changed, newest first. Versions before 0.5.2 came before the repository, and 0.10 to 0.12 have no commit of their own: their work is in 0.13.0.
 
+## 0.56.0
+
+- In the desktop app the usage row is a card of its own in the band: a round, dim frame, a row apart from the other plugins' cards (hub-pulse, handoff), each framed on its own. The row lays out in the four columns and three rows the frame leaves it. A background set with `/tokens color background` fills this card alone, no longer the whole band. `/tokens list` still names the band's own width. A terminal's band is short of rows, so it draws no frame there.
+
 ## 0.55.0
 
 - Where the handoff mod's `/handoff` is there, the band no longer hands off: from 250k it offers no move at all (no Hand off, Park, Compact or Compact after), and the handoff mod's card is the one place a session is handed off. Under 250k it offers Compact as before. A hand-off message set is not sent then, and the crab's choices after a stop say Start fresh. Hand off and Park no longer run `/handoff`. Without the handoff mod nothing changes.

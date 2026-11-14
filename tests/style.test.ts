@@ -257,12 +257,34 @@ test('the desktop band draws its background behind everything it shows; the term
 
   const desktop = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...BAND })
 
-  // Out to the frame's sides, the padding giving the row its width back.
-  expect((await desktop.findAll({ type: 'Box' }))[0]?.props).toMatchObject({ backgroundColor: '#1f3b2d', marginX: -1, paddingX: 1, paddingY: 1 })
+  // Inside the row's own card: the other plugins' cards keep the band's colour.
+  const card = await desktop.find({ type: 'Box', key: 'usage-card' })
+  expect(card?.props).toMatchObject({ backgroundColor: '#1f3b2d', paddingX: 1, paddingY: 1 })
+  expect(card?.props.marginX).toBeUndefined()
+  expect((await desktop.findAll({ type: 'Box' })).filter(({ props }) => props.backgroundColor === '#1f3b2d')).toHaveLength(1)
 
   const terminal = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...BAND })
 
   expect((await terminal.findAll({ type: 'Box' })).some(({ props }) => props.backgroundColor === '#1f3b2d')).toBe(false)
+})
+
+test('on the desktop the usage row is a card of its own: a round dim frame, a row apart, the plugins beneath outside it', async ($, on) => {
+  world(on)
+  beneathBand(on, 'another card')
+  await $.session.measure(MEASURE)
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...BAND })
+  const card = await ui.find({ type: 'Box', key: 'usage-card' })
+
+  expect(card?.props).toMatchObject({ borderStyle: 'round', borderDimColor: true, paddingX: 1, marginBottom: 1 })
+  expect(card?.text).toContain('84.0k')
+  expect(card?.text).not.toContain('another card')
+  await ui.unmount()
+
+  // A terminal's band is short of rows: no frame there.
+  const terminal = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...BAND })
+  expect((await terminal.findAll({ type: 'Box' })).filter(({ props }) => props.borderStyle !== undefined)).toHaveLength(0)
+  await terminal.unmount()
 })
 
 test('a part is switched off and on again', () => {
@@ -379,7 +401,8 @@ test('frames draws each window in a bordered box with its own ring', async ($, o
   const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...BAND })
   const boxes = await ui.findAll({ type: 'Box' })
 
-  expect(boxes.filter(box => box.props.borderStyle === 'round')).toHaveLength(2)
+  // A box for each window, inside the row's own card.
+  expect(boxes.filter(box => box.props.borderStyle === 'round' && box.key !== 'usage-card')).toHaveLength(2)
   expect((await ui.findAll({ type: 'Svg' })).map(svg => svg.props.alt)).toEqual([
     'context 84.0k, 42% of the 200k window, Crab standing by',
     '5-hour 31%',
@@ -680,10 +703,11 @@ test('tokens list says how wide the desktop band is and what it left out', async
     plugin: PLUGIN,
     surface: 'desktop',
     component: 'AbovePrompt',
-    props: { ...BAND.props, bodyColumns: 52 },
+    // 56 wide, the row has 52 inside its frame.
+    props: { ...BAND.props, bodyColumns: 56 },
   })
   expect((await $.command.run({ ...TYPED, command: 'tokens', args: 'list' })).text).toContain(
-    'Band: 52 columns wide, drawn as rings without cost, the context word.',
+    'Band: 56 columns wide, drawn as rings without cost, the context word.',
   )
 })
 
