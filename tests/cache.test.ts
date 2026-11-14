@@ -776,6 +776,14 @@ test('alerts test cache brings the warning now, and alerts test lapsed shows the
   expect(await crab.find({ type: 'Text', text: 'Cache lapses in 2m' })).toBeDefined()
   expect((await crab.find({ type: 'Button', key: 'choice-compact' }))?.props.variant).toBe('primary')
   expect((await crab.find({ type: 'Box', key: 'hint-choice-warm' }))?.props.display).toBe('none')
+  // A band too narrow for every button wraps them inside it, not past its edge.
+  const buttons = await crab.find({ type: 'Box', key: 'crab-choices' })
+  expect(buttons?.props.flexWrap).toBe('wrap')
+  expect(buttons?.props.flexShrink).not.toBe(0)
+  expect(buttons?.props.minWidth).toBe(0)
+  // Wrapped rows and the figures beneath keep space between them.
+  expect(buttons?.props.rowGap).toBe(2)
+  expect((await crab.find({ type: 'Box', key: 'crab-stage' }))?.props.marginBottom).toBe(2)
   await crab.unmount()
 
   await $.command.run({ ...TYPED, command: 'tokens', args: 'alerts test lapsed' })

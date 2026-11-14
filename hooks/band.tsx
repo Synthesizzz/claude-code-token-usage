@@ -509,9 +509,10 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
             </Box>
           ))}
           {stage !== null && talk !== null && (
-            <Box gap={2} alignItems="center" flexWrap="wrap">
+            // The notice keeps a row's space from the figures beneath it.
+            <Box key="crab-stage" gap={2} alignItems="center" flexWrap="wrap" marginBottom={2}>
               <Box flexShrink={0}>{figure(stage, stage.width, stage.height)}</Box>
-              {/* The words give way and wrap in a narrow band; the OK keeps its room. */}
+              {/* The words give way and wrap in a narrow band. */}
               {isStaying && (
                 <Box flexDirection="column" flexShrink={1} minWidth={0}>
                   <Text weight="semibold" wrap="wrap">
@@ -532,8 +533,11 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
                   )}
                 </Box>
               )}
+              {/* The buttons may narrow to the band, so a row too wide for it
+                  wraps its buttons onto a second line instead of running past
+                  the edge. Each button keeps its own width: they wrap whole. */}
               {isStaying && (
-                <Box flexShrink={0} gap={1} flexWrap="wrap">
+                <Box key="crab-choices" flexShrink={1} minWidth={0} columnGap={1} rowGap={2} flexWrap="wrap">
                   {offered}
                   <Button key="crab-ok" label="OK" onPress={() => hush($)} />
                 </Box>

@@ -2,6 +2,10 @@
 
 What each version of token-usage added or changed, newest first. Versions before 0.5.2 came before the repository, and 0.10 to 0.12 have no commit of their own: their work is in 0.13.0.
 
+## 0.54.1
+
+- In a narrow band the heavy-turn notice's buttons wrap onto a second line inside the band instead of running past its edge, and the wrapped rows and the figures beneath keep space between them.
+
 ## 0.54.0
 
 - Hand off and Park come only with a context of 250k or more, on all three paths: the lapsed cache, the full context, and Park before quiet hours or a lapse. Under 250k each is Compact, a hand-off message set or not. The lapsed band had offered Hand off from 50k.
