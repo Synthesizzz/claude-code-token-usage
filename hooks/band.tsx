@@ -110,6 +110,7 @@ const restSince = atom({ plugin: 'token-usage', key: 'restSince' } as const, nul
 const cacheTest = atom({ plugin: 'token-usage', key: 'cacheTest' } as const, 0)
 
 const pauses = atom({ plugin: 'token-usage', key: 'pauses' } as const, [])
+const replyTtl = atom({ plugin: 'token-usage', key: 'replyTtl' } as const, null)
 
 // What fills the context, as /context breaks it down.
 const breakdown = atom({ plugin: 'token-usage', key: 'breakdown' } as const, null)
@@ -156,14 +157,15 @@ export async function weighMove($: EngineInterface, usage: Snapshot, at: number,
   const isSoon = toGo !== null && toGo <= SOON_TURNS
   // While no turn runs, the cache counts down the pause since the last.
   const paused = isWorking ? null : await read($, idleSince)
-  const learned = learnedTtl(await read($, pauses))
-  const { ttl, isLearned } = learned
+  const learned = learnedTtl(await read($, pauses), await read($, replyTtl))
+  const { ttl, source } = learned
   // A test of the lapse shows it for a minute, for the context as it is.
   const isTestLapse = !isWorking && (await read($, cacheTest)) > at
-  // A resumed session the engine called lapsed is lapsed, where the cache's
-  // time is not learned yet.
+  // A resumed session the engine called lapsed is lapsed, where the pauses
+  // have not taught the cache's time: the engine's word wins over the default
+  // hour and over a reply's time read before the break.
   const cachePart =
-    isTestLapse || (paused?.lapsed === true && !isLearned)
+    isTestLapse || (paused?.lapsed === true && source !== 'learned')
       ? { phase: 'gone' as const, left: 0 }
       : paused === null
         ? null

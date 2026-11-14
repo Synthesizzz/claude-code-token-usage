@@ -265,6 +265,11 @@ declare module 'claude-code' {
       restSince: number | null
       // The pauses the cache was judged on, every session's.
       pauses: { gap: number; isKept: boolean; at: number }[]
+      // The cache's time as the last reply that wrote to it set it, read from
+      // the transcript's end after such a turn; null until one is read.
+      replyTtl: { ttl: number; at: number } | null
+      // This session's transcript, as the engine's classic events name it.
+      transcriptPath: string | null
       // The context's set-up by local day, as last counted: every session's.
       setUps: Record<string, Record<string, number>>
       // What fills the context as /context breaks it down, how it was counted,

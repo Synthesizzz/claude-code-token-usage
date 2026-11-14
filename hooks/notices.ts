@@ -123,6 +123,7 @@ const cacheModel = atom({ plugin: 'token-usage', key: 'cacheModel' } as const, n
 const forkShort = atom({ plugin: 'token-usage', key: 'forkShort' } as const, false)
 
 const pauses = atom({ plugin: 'token-usage', key: 'pauses' } as const, [])
+const replyTtl = atom({ plugin: 'token-usage', key: 'replyTtl' } as const, null)
 
 // The pause the cache counts down: the band's next redraw, and its one
 // warning. `run` tells a pause from the one before it, so a redraw that was
@@ -163,11 +164,12 @@ export async function beginPause(
   await update($, idleSince, () => ({ at, tokens, ...extra }))
   endPause()
 
-  const { ttl, isLearned } = learnedTtl(await read($, pauses))
+  const { ttl, source } = learnedTtl(await read($, pauses), await read($, replyTtl))
 
   // A resumed session the engine called lapsed has nothing to count down,
-  // where the cache's time is the default hour and not learned.
-  if (extra.lapsed === true && !isLearned) {
+  // where the pauses have not taught the cache's time: the engine's word wins
+  // over the default hour and over a reply's time read before the break.
+  if (extra.lapsed === true && source !== 'learned') {
     return
   }
 
@@ -221,7 +223,7 @@ export async function keepWarm($: EngineInterface, isRetry = false) {
   }
 
   if (!reply.isAnswered) {
-    const ttl = learnedTtl(await read($, pauses)).ttl
+    const ttl = learnedTtl(await read($, pauses), await read($, replyTtl)).ttl
     const isBusy = reply.reason === 'api-error' && (reply.status === null || reply.status === 429 || reply.status >= 500)
 
     if (isBusy && !isRetry && at + RETRY_MS < held.at + ttl) {
@@ -253,7 +255,7 @@ export async function keepWarm($: EngineInterface, isRetry = false) {
     return
   }
 
-  const rates = cacheRates(await read($, cacheModel), learnedTtl(await read($, pauses)).ttl)
+  const rates = cacheRates(await read($, cacheModel), learnedTtl(await read($, pauses), await read($, replyTtl)).ttl)
   // A first ping writes a block of its own, once: said, so its cost is seen.
   const besides = isHeavyPing(read_, written) ? `, wrote ${shortTokens(written)} once (about ${shortTokens(written * rates.write)})` : ''
 

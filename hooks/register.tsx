@@ -18,7 +18,7 @@ import {
   isPlanOf,
   sessionSummary,
 } from './cost'
-import { cacheRates, cacheWord, judgePause, keepPauses, learnedTtl, sanePauses } from './cache'
+import { cacheRates, cacheWord, judgePause, keepPauses, learnedTtl, sanePauses, saneReply } from './cache'
 import { NO_PARTS, addStep, heavyAdvice, splitOf } from './advice'
 import type { TurnParts } from './advice'
 import { defaults, sane } from './style'
@@ -127,6 +127,15 @@ const heavyBoost = atom({ plugin: 'token-usage', key: 'heavyBoost' } as const, 1
 const COMPACT_AFTER_MS = 500
 
 const pauses = atom({ plugin: 'token-usage', key: 'pauses' } as const, [])
+const replyTtl = atom({ plugin: 'token-usage', key: 'replyTtl' } as const, null)
+
+// This session's transcript, as the classic events name it: where the last
+// reply's cache time is read after a turn that wrote to the cache.
+const transcriptPath = atom({ plugin: 'token-usage', key: 'transcriptPath' } as const, null)
+
+// How long the script that reads the transcript's end may take; past it the
+// time held stays.
+const REPLY_TTL_MS = 3000
 
 // The tokens of the last main turns, every session's: what a usual turn is.
 // Kept in the store, so a new session goes by the ones before it.
@@ -137,6 +146,38 @@ const turnRead = atom({ plugin: 'token-usage', key: 'turnRead' } as const, true)
 
 // How soon after a /clear the new session is set up.
 const CLEARED_MS = 500
+
+// A main-thread classic event's transcript, kept for reading the cache's time.
+async function keepTranscript($: EngineInterface, e: { transcript_path?: unknown; agent_id?: unknown }) {
+  if (e.agent_id === undefined && typeof e.transcript_path === 'string' && e.transcript_path !== '') {
+    const path = e.transcript_path
+
+    await update($, transcriptPath, () => path)
+  }
+}
+
+// The cache's time as the last reply that wrote to it set it, read from the
+// transcript's end by the mod's own script (tools/last-ttl.mjs). A script
+// that fails, is slow or finds nothing leaves the time held, and where none
+// was ever read the pauses' stands: no word of it to the person.
+async function readReplyTtl($: EngineInterface) {
+  const path = await read($, transcriptPath)
+
+  if (path === null) {
+    return
+  }
+
+  try {
+    const done = await $.process.run(['node', `${$.plugin.root}/tools/last-ttl.mjs`, path], { timeoutMs: REPLY_TTL_MS })
+    const said = done.exitCode === 0 ? saneReply(JSON.parse(done.stdout)) : null
+
+    if (said !== null) {
+      await update($, replyTtl, () => said)
+    }
+  } catch {
+    // As above: the time held stands.
+  }
+}
 
 // What a session starts from: the look, the counts and the windows the store
 // kept, and a first measure. A /clear starts a session no session.start
@@ -243,6 +284,8 @@ export const register: Register = (on, options) => {
   on('classic.SessionStart', async ($, e, next) => {
     const done = await next(e)
 
+    await keepTranscript($, e)
+
     if ((e.source === 'resume' || e.source === 'fork') && typeof e.seconds_since_last_response === 'number') {
       const at = (await $.clock.now()) - e.seconds_since_last_response * 1000
       const tokens = typeof e.context_tokens === 'number' && e.context_tokens > 0 ? e.context_tokens : null
@@ -256,6 +299,27 @@ export const register: Register = (on, options) => {
     return done
   }).catch(async ($, e, next) => {
     await note($, 'classic.SessionStart', next.error)
+
+    return next.called ? undefined : next(e)
+  })
+
+  // The transcript's path, from the events that name it each turn.
+  on('classic.UserPromptSubmit', async ($, e, next) => {
+    await keepTranscript($, e)
+
+    return next(e)
+  }).catch(async ($, e, next) => {
+    await note($, 'classic.UserPromptSubmit', next.error)
+
+    return next.called ? undefined : next(e)
+  })
+
+  on('classic.Stop', async ($, e, next) => {
+    await keepTranscript($, e)
+
+    return next(e)
+  }).catch(async ($, e, next) => {
+    await note($, 'classic.Stop', next.error)
 
     return next.called ? undefined : next(e)
   })
@@ -387,7 +451,7 @@ export const register: Register = (on, options) => {
 
     if (since !== null && used !== null) {
       const pause = judgePause(startedAt - since.at, since.tokens, used, startedAt)
-      const { ttl, isLearned } = learnedTtl(await read($, pauses))
+      const { ttl, isLearned } = learnedTtl(await read($, pauses), await read($, replyTtl))
 
       // A pause begun at a quiet ping teaches nothing of how long the cache
       // lasts; lapsed short of the learned time, it says the ping did not hold
@@ -602,6 +666,12 @@ export const register: Register = (on, options) => {
       // A compaction asked for while it ran, now that it has ended.
       $.clock.after(COMPACT_AFTER_MS, () => void compactIfAsked($))
 
+      // A turn that wrote to the cache set how long it lasts: read from the
+      // transcript before the pause counts on it.
+      if ((usage?.cacheWrite ?? 0) > 0) {
+        await readReplyTtl($)
+      }
+
       // The pause begins: the band counts the cache down, and the crab warns.
       const endedAt = await $.clock.now()
 
@@ -700,7 +770,7 @@ export const register: Register = (on, options) => {
 
     if (!('open' in outcome)) {
       if ('isCache' in outcome) {
-        await testCache($, base, learnedTtl(await read($, pauses)).ttl)
+        await testCache($, base, learnedTtl(await read($, pauses), await read($, replyTtl)).ttl)
       } else if ('isLapsed' in outcome) {
         await testLapse($)
       } else if ('isTest' in outcome) {

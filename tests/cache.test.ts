@@ -2,7 +2,7 @@ import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 import type { TestBody } from 'claude-code/testing'
 
-import { DEFAULT_TTL, WARM_TEXT, cacheCells, cacheClock, cacheHints, cacheLine, cacheNotice, cachePhase, cacheRates, cacheWord, hasLapsedActions, judgePause, keepPauses, learnedTtl, nextChange } from '../hooks/cache'
+import { DEFAULT_TTL, WARM_TEXT, cacheCells, cacheClock, cacheHints, cacheLine, cacheNotice, cachePhase, cacheRates, cacheWord, hasLapsedActions, judgePause, keepPauses, learnedTtl, nextChange, saneReply } from '../hooks/cache'
 import { CACHE_BAR_MIN_PX, CACHE_BAR_PX, fit, told, widthOf } from '../hooks/fit'
 import type { Wish } from '../hooks/fit'
 import { beneathBand, TYPED, openCard } from './kit'
@@ -35,10 +35,10 @@ test('the cache lasts 5 minutes or an hour: the one the pauses kept and lapsed l
   ]
 
   // Kept through 4m30s, lapsed after 6m: the 5 minutes.
-  expect(learnedTtl(pauses)).toEqual({ ttl: 5 * MINUTE, isLearned: true, kept: 4.5 * MINUTE, pauses: 5 })
+  expect(learnedTtl(pauses)).toEqual({ ttl: 5 * MINUTE, isLearned: true, source: 'learned', kept: 4.5 * MINUTE, pauses: 5 })
   // Kept through 4m30s and no lapse: it may be either, so the default hour.
-  expect(learnedTtl(pauses.filter(({ isKept }) => isKept))).toEqual({ ttl: 60 * MINUTE, isLearned: false, kept: 4.5 * MINUTE, pauses: 2 })
-  expect(learnedTtl([])).toEqual({ ttl: 60 * MINUTE, isLearned: false, kept: 0, pauses: 0 })
+  expect(learnedTtl(pauses.filter(({ isKept }) => isKept))).toEqual({ ttl: 60 * MINUTE, isLearned: false, source: 'default', kept: 4.5 * MINUTE, pauses: 2 })
+  expect(learnedTtl([])).toEqual({ ttl: 60 * MINUTE, isLearned: false, source: 'default', kept: 0, pauses: 0 })
   // This machine's: kept through 24m, lapsed after 4h31m. The hour, not 4h31m.
   const hour = [
     { gap: 24.2 * MINUTE, isKept: true, at: 1 },
@@ -59,7 +59,7 @@ test('with no pause yet the cache lasts the default hour; the first short lapse 
   expect(DEFAULT_TTL).toBe(60 * MINUTE)
   expect(learnedTtl([])).toMatchObject({ ttl: DEFAULT_TTL, isLearned: false })
   // A lapse after 7 minutes, nothing kept before it: the 5 minutes, learned.
-  expect(learnedTtl([{ gap: 7 * MINUTE, isKept: false, at: 1 }])).toEqual({ ttl: 5 * MINUTE, isLearned: true, kept: 0, pauses: 1 })
+  expect(learnedTtl([{ gap: 7 * MINUTE, isKept: false, at: 1 }])).toEqual({ ttl: 5 * MINUTE, isLearned: true, source: 'learned', kept: 0, pauses: 1 })
   // One under 5 minutes keeps its own end.
   expect(learnedTtl([{ gap: 3 * MINUTE, isKept: false, at: 1 }])).toMatchObject({ ttl: 3 * MINUTE, isLearned: true })
   // A pause past the 5 minutes that kept the cache settles the hour.
@@ -157,13 +157,35 @@ test("a cache read is priced by the model's own rate, a write by how long the ca
 })
 
 test('the pane says what was learned, or that the hour is the default until a pause says otherwise', () => {
-  expect(cacheLine({ ttl: 5 * MINUTE, isLearned: true, kept: 4.5 * MINUTE, pauses: 9 })).toBe('cache lapses after ~5m idle · learned from 9 pauses')
-  expect(cacheLine({ ttl: 60 * MINUTE, isLearned: false, kept: 2 * MINUTE, pauses: 3 })).toBe(
+  expect(cacheLine({ ttl: 5 * MINUTE, isLearned: true, source: 'learned', kept: 4.5 * MINUTE, pauses: 9 })).toBe('cache lapses after ~5m idle · learned from 9 pauses')
+  expect(cacheLine({ ttl: 60 * MINUTE, isLearned: false, source: 'default', kept: 2 * MINUTE, pauses: 3 })).toBe(
     'cache lapses after ~1h idle · the default until a pause says otherwise · kept through 2m so far, 3 pauses',
   )
-  expect(cacheLine({ ttl: 60 * MINUTE, isLearned: true, kept: 24 * MINUTE, pauses: 42 })).toBe('cache lapses after ~1h idle · learned from 42 pauses')
-  expect(cacheLine({ ttl: 271 * MINUTE, isLearned: true, kept: 24 * MINUTE, pauses: 42 })).toBe('cache lapses after ~4h31m idle · learned from 42 pauses')
+  expect(cacheLine({ ttl: 60 * MINUTE, isLearned: true, source: 'learned', kept: 24 * MINUTE, pauses: 42 })).toBe('cache lapses after ~1h idle · learned from 42 pauses')
+  expect(cacheLine({ ttl: 271 * MINUTE, isLearned: true, source: 'learned', kept: 24 * MINUTE, pauses: 42 })).toBe('cache lapses after ~4h31m idle · learned from 42 pauses')
   expect(cacheLine(learnedTtl([]))).toBe('cache lapses after ~1h idle · the default until a pause says otherwise')
+})
+
+test('the time the last reply set wins over the pauses and the default; one it cannot hold is passed over', () => {
+  const lapsedShort = [{ gap: 7 * MINUTE, isKept: false, at: 1 }]
+
+  // The reply says the hour though the pauses taught 5 minutes: the reply.
+  expect(learnedTtl(lapsedShort, { ttl: 60 * MINUTE, at: 9 })).toEqual({ ttl: 60 * MINUTE, isLearned: true, source: 'reply', kept: 0, pauses: 1 })
+  // The reply says 5 minutes where nothing was learned yet.
+  expect(learnedTtl([], { ttl: 5 * MINUTE, at: 9 })).toMatchObject({ ttl: 5 * MINUTE, isLearned: true, source: 'reply' })
+  // No reply read: the pauses, then the default.
+  expect(learnedTtl(lapsedShort, null)).toMatchObject({ ttl: 5 * MINUTE, source: 'learned' })
+  expect(learnedTtl([], null)).toMatchObject({ ttl: 60 * MINUTE, source: 'default' })
+  // A time that is neither of the cache's two, or no time at all, is no reply.
+  expect(learnedTtl(lapsedShort, { ttl: 20 * MINUTE, at: 9 }).source).toBe('learned')
+  expect(saneReply({ ttl: 60 * MINUTE, at: 9 })).toEqual({ ttl: 60 * MINUTE, at: 9 })
+  expect(saneReply({ ttl: 20 * MINUTE, at: 9 })).toBeNull()
+  expect(saneReply({ ttl: 60 * MINUTE })).toBeNull()
+  expect(saneReply(null)).toBeNull()
+  expect(saneReply('{"ttl":3600000}')).toBeNull()
+  // The pane says where the time came from.
+  expect(cacheLine(learnedTtl(lapsedShort, { ttl: 60 * MINUTE, at: 9 }))).toBe('cache lapses after ~1h idle · as the last reply set it')
+  expect(cacheLine(learnedTtl([], { ttl: 5 * MINUTE, at: 9 }))).toBe('cache lapses after ~5m idle · as the last reply set it')
 })
 
 // In the session.
@@ -1056,6 +1078,103 @@ test('the hint says the time was learned where the pauses taught it', async ($, 
 
   expect((await countdownOf(band))?.text).toBe('cache 04:00')
   expect(await band.find({ type: 'Text', text: 'Cache lapses after ~5m idle · learned from 2 pauses' })).toBeDefined()
+})
+
+// The time the last reply set: read from the transcript's end, by the mod's
+// own script, after a main turn that wrote to the cache.
+
+const TRANSCRIPT = 'C:/Users/me/.claude/projects/p/s.jsonl'
+const LAPSED_SHORT = [
+  { gap: 4 * MINUTE, isKept: true, at: 0 },
+  { gap: 7 * MINUTE, isKept: false, at: 0 },
+]
+const written = (turnId: string) => ({ ...done(turnId), usage: { ...done(turnId).usage, cache_creation_input_tokens: 2000 } }) as const
+const ran = (on: On, answer: () => unknown) => {
+  const calls: { argv: string[]; timeoutMs: number | undefined }[] = []
+
+  on('process.run', (_, e) => {
+    calls.push({ argv: [...e.argv], timeoutMs: e.init?.timeoutMs })
+
+    return answer() as never
+  })
+
+  return calls
+}
+const printed = (stdout: string) => ({ value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } })
+const prompted = async ($: Engine, on: On) => {
+  on('classic.UserPromptSubmit', () => ({}) as never)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.session.measure(measure(84_000))
+  await $.classic.UserPromptSubmit({ prompt: 'go', transcript_path: TRANSCRIPT } as never)
+}
+
+test('the time the last reply set wins over the pauses: the band counts the hour and says where it came from', async ($, on) => {
+  openCard(on)
+  const { clock } = world(on, { cachePauses: LAPSED_SHORT })
+  const calls = ran(on, () => printed(`${JSON.stringify({ ttl: 60 * MINUTE, at: 1 })}\n`))
+
+  await prompted($, on)
+  await $.turn.complete(written('t1'))
+  await clock.advance(MINUTE)
+
+  expect(calls).toHaveLength(1)
+  expect(calls[0]?.argv[0]).toBe('node')
+  expect(calls[0]?.argv[1]?.endsWith('/tools/last-ttl.mjs')).toBe(true)
+  expect(calls[0]?.argv[2]).toBe(TRANSCRIPT)
+  expect(calls[0]?.timeoutMs).toBe(3000)
+
+  const band = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND })
+
+  // The pauses alone would say 04:00, the five minutes.
+  expect((await countdownOf(band))?.text).toBe('cache 59:00')
+  expect(await band.find({ type: 'Text', text: 'Cache lapses after ~1h idle · as the last reply set it' })).toBeDefined()
+})
+
+test("a script that times out, fails or finds no reply leaves the pauses' time, and says nothing of it", async ($, on) => {
+  openCard(on)
+  const { clock } = world(on, { cachePauses: LAPSED_SHORT })
+  const answers = [
+    () => {
+      throw new Error('process.run: still running after 3000 ms')
+    },
+    () => ({ value: { exitCode: 1, stdout: '', stderr: 'no such file', isStdoutTruncated: false, isStderrTruncated: false } }),
+    () => printed('null\n'),
+    () => printed('not json'),
+  ]
+  let at = 0
+  const calls = ran(on, () => (answers[at++] ?? answers[0])?.())
+
+  await prompted($, on)
+
+  for (const [index] of answers.entries()) {
+    await $.turn.complete(written(`t${index}`))
+  }
+
+  await clock.advance(MINUTE)
+  expect(calls).toHaveLength(answers.length)
+
+  const band = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND })
+
+  expect((await countdownOf(band))?.text).toBe('cache 04:00')
+  expect(await band.find({ type: 'Text', text: 'Cache lapses after ~5m idle · learned from 2 pauses' })).toBeDefined()
+})
+
+test('a turn that wrote nothing to the cache, a subagent\'s turn, or one with no transcript known runs nothing', async ($, on) => {
+  const { clock } = world(on, { cachePauses: LAPSED_SHORT })
+  const calls = ran(on, () => printed(`${JSON.stringify({ ttl: 60 * MINUTE, at: 1 })}\n`))
+
+  on('classic.UserPromptSubmit', () => ({}) as never)
+  // No transcript named yet: a turn that wrote runs nothing.
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.session.measure(measure(84_000))
+  await $.turn.complete(written('t0'))
+  expect(calls).toHaveLength(0)
+
+  await $.classic.UserPromptSubmit({ prompt: 'go', transcript_path: TRANSCRIPT } as never)
+  await $.turn.complete(done('t1'))
+  await $.turn.complete({ ...written('t2'), agentId: 'a1' } as never)
+  await clock.advance(MINUTE)
+  expect(calls).toHaveLength(0)
 })
 
 test("a terminal draws the cache's bar in cells beside its time and Keep warm; too narrow, the bar goes and the time stays", async ($, on) => {

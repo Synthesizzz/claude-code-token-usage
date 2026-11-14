@@ -12,6 +12,7 @@ const fleet = atom({ plugin: 'token-usage', key: 'fleet' } as const, [])
 const snapshot = atom({ plugin: 'token-usage', key: 'usage' } as const, null)
 const cacheModel = atom({ plugin: 'token-usage', key: 'cacheModel' } as const, null)
 const pauses = atom({ plugin: 'token-usage', key: 'pauses' } as const, [])
+const replyTtl = atom({ plugin: 'token-usage', key: 'replyTtl' } as const, null)
 
 // The files read already, by name, with the time they were changed: a file
 // is read again only once it changes.
@@ -103,7 +104,7 @@ export async function turnEnded($: EngineInterface, cwd: string) {
   const at = await $.clock.now()
   const tokens = (await read($, snapshot))?.tokens ?? null
   const model = await read($, cacheModel)
-  const ttl = learnedTtl(await read($, pauses)).ttl
+  const ttl = learnedTtl(await read($, pauses), await read($, replyTtl)).ttl
 
   return keepFleet($, cwd, { at, tokens, model, ttl, isWorking: false, startedAt: null })
 }

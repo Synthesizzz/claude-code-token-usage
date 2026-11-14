@@ -76,6 +76,7 @@ const sessionTokens = atom({ plugin: 'token-usage', key: 'sessionTokens' } as co
 const breakdown = atom({ plugin: 'token-usage', key: 'breakdown' } as const, null)
 
 const pauses = atom({ plugin: 'token-usage', key: 'pauses' } as const, [])
+const replyTtl = atom({ plugin: 'token-usage', key: 'replyTtl' } as const, null)
 
 // Said beneath the month's dollars on a subscription.
 const NOT_BILLED = 'Your plan does not bill these.'
@@ -134,7 +135,7 @@ export async function drawUsagePane($: Parameters<DrawUsagePaneHook>[0], e: Para
     const subagents = bySubagent(await read($, agents), total(days), at)
     const helpers = subagents.rows.map(({ name, total: sum, runs }) => ({ name: `${name} ×${runs}`, total: sum }))
     const advice = tips({ turn, percent: usage.percent, days })
-    const learned = cacheLine(learnedTtl(await read($, pauses)))
+    const learned = cacheLine(learnedTtl(await read($, pauses), await read($, replyTtl)))
     const previous = await read($, lastSession)
     // The month so far in dollars, and against its budget where one is set.
     const month = monthLine((await read($, ledger)).days, at)
