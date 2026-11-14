@@ -2,7 +2,7 @@ import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
 import { PALETTES, apply, defaults, paletteFor, sane, words } from '../hooks/style'
-import { beneathBand, TYPED } from './kit'
+import { beneathBand, TYPED, openCard } from './kit'
 
 const PLUGIN = 'token-usage'
 const NOW = 1_800_000_000_000
@@ -691,6 +691,7 @@ test('no toast is raised while alerts are switched off', async ($, on) => {
 })
 
 test('tokens list says how wide the desktop band is and what it left out', async ($, on) => {
+  openCard(on)
   world(on)
   await $.session.measure(MEASURE)
 

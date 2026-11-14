@@ -167,6 +167,10 @@ export type Motion = { kind: 'near' } | { kind: 'reset'; from: number }
 // The windows that have just reset: when, and how full each was.
 export type Fresh = Record<string, { at: number; from: number }>
 
+// A press of the usage card's fold button on the desktop: the news it was
+// pressed on and what it chose (hooks/fold.ts).
+export type Fold = { news: string | null; folded: boolean }
+
 // What the person was told already, by window: the levels passed and whether
 // its pace was named.
 export type Alerted = Record<string, { levels: number[]; hasPace: boolean }>
@@ -216,6 +220,7 @@ declare module 'claude-code' {
       alerted: Alerted
       fresh: Fresh
       saying: Saying | null
+      fold: Fold | null
       // The main loop's running turn, a stop asked for when it ends, and the
       // heavy-turn line raised for the session.
       turnNow: string | null

@@ -5,7 +5,7 @@ import type { TestBody } from 'claude-code/testing'
 import { DEFAULT_TTL, WARM_TEXT, cacheCells, cacheClock, cacheHints, cacheLine, cacheNotice, cachePhase, cacheRates, cacheWord, hasLapsedActions, judgePause, keepPauses, learnedTtl, nextChange } from '../hooks/cache'
 import { CACHE_BAR_MIN_PX, CACHE_BAR_PX, fit, told, widthOf } from '../hooks/fit'
 import type { Wish } from '../hooks/fit'
-import { beneathBand, TYPED } from './kit'
+import { beneathBand, TYPED, openCard } from './kit'
 
 // Warn before the prompt cache lapses: the time it lasts is learned from the
 // pauses themselves, as the first response after each says what it read.
@@ -329,6 +329,7 @@ const bandSays = async ($: Engine) => {
 }
 
 test('with nothing learned the band counts the hour down from the first turn; a lapse at 7 minutes teaches the 5', { timeoutMs: 20_000 }, async ($, on) => {
+  openCard(on)
   const { kept, clock, step, bind } = world(on)
 
   bind((turnId, index) => $.turn.step({ turnId, index, model: 'm', messageCount: 3 } as never))
@@ -537,6 +538,7 @@ const cacheSays = async ($: Engine) => {
 }
 
 test("Keep warm reads the cache with a fork, no turn, and the cache's time starts over from it", async ($, on) => {
+  openCard(on)
   const { clock, bind, forks, toasts, submitted } = warmWorld(on, [answered(84_000, 200)])
 
   await startAndPause($, bind)
@@ -675,6 +677,7 @@ test("a session resumed two hours on says its cache has lapsed, with what re-wri
 })
 
 test('a session resumed ten minutes on counts the hour down from its last reply', async ($, on) => {
+  openCard(on)
   world(on, { cachePauses: HOUR_LEARNED })
 
   const { said, hasFresh } = await resumed($, on, { seconds_since_last_response: 600, context_tokens: 148_000 })
@@ -697,6 +700,7 @@ test("with the cache's time not learned yet, the engine's word that it lapsed st
 })
 
 test("with the cache's time not learned yet, a session resumed ten minutes on counts the default hour down", async ($, on) => {
+  openCard(on)
   world(on)
 
   const { said } = await resumed($, on, { seconds_since_last_response: 600, context_tokens: 148_000 })
@@ -997,6 +1001,7 @@ const countdownOf = async (band: { findAll: (query: { type: 'Text' }) => Promise
   (await words(band)).find(({ text }) => text.startsWith('cache '))
 
 test('in a pause the desktop band counts the cache down with a clock, a bar that empties and Keep warm, green then yellow', { timeoutMs: 30_000 }, async ($, on) => {
+  openCard(on)
   const { clock } = world(on)
 
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
@@ -1039,6 +1044,7 @@ test('in a pause the desktop band counts the cache down with a clock, a bar that
 })
 
 test('the hint says the time was learned where the pauses taught it', async ($, on) => {
+  openCard(on)
   const { clock } = world(on, { cachePauses: [{ gap: 4 * MINUTE, isKept: true, at: 0 }, { gap: 7 * MINUTE, isKept: false, at: 0 }] })
 
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
@@ -1079,6 +1085,7 @@ test("a terminal draws the cache's bar in cells beside its time and Keep warm; t
 })
 
 test("the band's Keep warm takes the notice's path: a quiet ping, and the countdown starts over", async ($, on) => {
+  openCard(on)
   const { clock, bind, forks, toasts, submitted } = warmWorld(on, [answered(84_000, 200)])
 
   await startAndPause($, bind)
@@ -1111,4 +1118,89 @@ test('while the crab offers Keep warm the band does not offer it twice', async (
   expect(buttons.filter(label => label === 'Keep warm')).toHaveLength(1)
   // The countdown still stands, without its button.
   expect((await countdownOf(band))?.text).toBe('cache 04:00')
+})
+
+// The usage card's fold on the desktop (Decisions 2026-11-14): a pause with
+// nothing but the countdown is no news, so the card folds to its figures; the
+// crab out or a lapse opens it on its own; a press holds until the news changes.
+const foldOf = async (band: { find: (query: { type: 'Button'; key: string }) => Promise<{ props: Record<string, unknown> } | undefined> }) =>
+  (await band.find({ type: 'Button', key: 'usage-fold' }))?.props.label
+
+test('folded in a calm pause the desktop card is its figures and ▸: no countdown, no dots; ▸ opens it and it stays open as the clock runs', async ($, on) => {
+  const { clock } = world(on)
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.session.measure(measure(84_000))
+  await $.turn.complete(done('t1'))
+  await clock.advance(2 * MINUTE)
+
+  const calm = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND })
+  expect(await foldOf(calm)).toBe('▸')
+  expect(await countdownOf(calm)).toBeUndefined()
+  expect(await calm.find({ type: 'Box', key: 'cache' })).toBeUndefined()
+  expect((await words(calm)).some(({ text }) => text === '84.0k')).toBe(true)
+  await calm.press({ key: 'usage-fold' })
+  await calm.unmount()
+
+  const open = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND, requestId: 'f2' } as never)
+  expect(await foldOf(open)).toBe('▾')
+  expect((await countdownOf(open))?.text).toBe('cache 58:00')
+  await open.unmount()
+
+  // The clock running is no news: the press holds.
+  await clock.advance(MINUTE)
+  const later = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND, requestId: 'f3' } as never)
+  expect((await countdownOf(later))?.text).toBe('cache 57:00')
+  await later.unmount()
+
+  // A terminal draws no fold.
+  const term = await $.ui.mount({ plugin: 'token-usage', surface: 'terminal', ...BAND, requestId: 'f4' } as never)
+  expect(await foldOf(term)).toBeUndefined()
+  await term.unmount()
+})
+
+test("the crab's notice opens the folded card on its own; ▾ folds it while that notice stands, and the next notice opens it again", async ($, on) => {
+  const { clock } = world(on)
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.session.measure(measure(140_000))
+  await $.command.run({ ...TYPED, command: 'tokens', args: 'alerts test cache' })
+
+  const crab = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND })
+  expect(await foldOf(crab)).toBe('▾')
+  expect(await crab.find({ type: 'Box', key: 'crab-stage' })).toBeDefined()
+  await crab.press({ key: 'usage-fold' })
+  await crab.unmount()
+
+  await clock.advance(30_000)
+  const folded = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND, requestId: 'c2' } as never)
+  expect(await foldOf(folded)).toBe('▸')
+  expect(await folded.find({ type: 'Box', key: 'crab-stage' })).toBeUndefined()
+  expect(await folded.find({ type: 'Button', key: 'choice-compact' })).toBeUndefined()
+  await folded.unmount()
+
+  await clock.advance(30_000)
+  await $.command.run({ ...TYPED, command: 'tokens', args: 'alerts test cache' })
+  const again = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND, requestId: 'c3' } as never)
+  expect(await foldOf(again)).toBe('▾')
+  expect(await again.find({ type: 'Box', key: 'crab-stage' })).toBeDefined()
+  await again.unmount()
+})
+
+test('a lapse opens the card folded in its pause, the words of what the next turn re-reads in sight', async ($, on) => {
+  const { clock } = world(on)
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.session.measure(measure(84_000))
+  await $.turn.complete(done('t1'))
+  await clock.advance(2 * MINUTE)
+  const calm = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND })
+  expect(await foldOf(calm)).toBe('▸')
+  await calm.unmount()
+
+  await clock.advance(60 * MINUTE)
+  const gone = await $.ui.mount({ plugin: 'token-usage', surface: 'desktop', ...BAND, requestId: 'l2' } as never)
+  expect(await foldOf(gone)).toBe('▾')
+  expect((await countdownOf(gone))?.text).toBe('cache lapsed · next turn re-reads 84.0k')
+  await gone.unmount()
 })

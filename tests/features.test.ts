@@ -5,7 +5,7 @@ import { addProject, byProject, dayOf, keepTurn, saneProjects, saneTurns, shortT
 import { apply, defaults, sane } from '../hooks/style'
 import { clockAt, isQuiet, turnsLeft } from '../hooks/usage'
 import type { Style } from '../types'
-import { beneathBand, TYPED } from './kit'
+import { beneathBand, TYPED, openCard } from './kit'
 
 const PLUGIN = 'token-usage'
 const MINUTE = 60_000
@@ -200,6 +200,7 @@ test('a context that fell was compacted: the turns before it are not counted', (
 })
 
 test('Compact turns primary when the context fills within three turns, before it is crowded', async ($, on) => {
+  openCard(on)
   world(on)
 
   for (const [index, percent] of [50, 60, 70].entries()) {
@@ -219,6 +220,7 @@ test('Compact turns primary when the context fills within three turns, before it
 const TALK: SessionCompactInput = { trigger: 'manual', messages: [{ role: 'user', text: 'A long talk.', toolUses: [] }] }
 
 test('a compaction redraws the context at once, with no turn after it', async ($, on) => {
+  openCard(on)
   world(on)
   on('session.compact', () => ({ messages: [{ role: 'user', text: 'The summary.', toolUses: [] }], tokensAfter: 24000 }))
   await $.session.measure(reading(1, 89))

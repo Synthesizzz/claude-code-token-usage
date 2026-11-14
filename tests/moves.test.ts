@@ -1,7 +1,7 @@
 import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
-import { beneathBand, TYPED } from './kit'
+import { beneathBand, TYPED, openCard } from './kit'
 
 // The band's one next move in the session: the steps it counts, Park, and
 // what /tokens next says.
@@ -104,6 +104,7 @@ test('/tokens next with a light context says to carry on; a heavy one with no tu
 })
 
 test('before quiet hours a heavy context parks: the hand-off goes, and the context compacts once its turn ends', async ($, on) => {
+  openCard(on)
   const { clock, submitted, compactions } = world(on, new Date(2026, 10, 10, 21, 40).getTime())
 
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
@@ -133,6 +134,7 @@ test('before quiet hours a heavy context parks: the hand-off goes, and the conte
 })
 
 test('Park with no hand-off message is a Compact, and the band says Compact', async ($, on) => {
+  openCard(on)
   world(on, new Date(2026, 10, 10, 21, 40).getTime())
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
   await $.command.run({ ...TYPED, command: 'tokens', args: 'alerts quiet 22-8' })

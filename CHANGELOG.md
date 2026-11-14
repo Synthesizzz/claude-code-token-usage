@@ -2,6 +2,11 @@
 
 What each version of token-usage added or changed, newest first. Versions before 0.5.2 came before the repository, and 0.10 to 0.12 have no commit of their own: their work is in 0.13.0.
 
+## 0.57.0
+
+- In the desktop app the usage card folds to its figures (the context and the windows) when it has nothing else to say, and a fold button (▾ / ▸) at the end of its row opens or folds it. It opens on its own when it has news: the crab is out with a notice, the cache has lapsed, what fills the context says there is something to do, quiet hours hold, or the mod cannot read a figure. The cache's countdown and the move's button are not news, so in a calm pause the card stays folded and Compact sits inside it.
+- A press holds while the news is the one it was pressed on: a new notice, even of the same kind, opens the card again. The press lasts the session. A terminal draws the band as before, with no fold.
+
 ## 0.56.0
 
 - In the desktop app the usage row is a card of its own in the band: a round, dim frame, a row apart from the other plugins' cards (hub-pulse, handoff), each framed on its own. The row lays out in the four columns and three rows the frame leaves it. A background set with `/tokens color background` fills this card alone, no longer the whole band. `/tokens list` still names the band's own width. A terminal's band is short of rows, so it draws no frame there.

@@ -1,7 +1,7 @@
 // The band above the prompt: the figures, the crab with its news, the
 // Compact button, and under them what the plugins beneath draw.
 
-import { atom, read } from 'claude-code'
+import { atom, read, update } from 'claude-code'
 import type { EngineInterface, MatchedHook } from 'claude-code'
 import type { Motion, RingProps, Snapshot, Style } from '../types'
 import { isCrowded } from './alerts'
@@ -38,6 +38,7 @@ import { note, trouble } from './measure'
 import { act, cacheSaid as pricing, heard, hush, knowsHandoffCommand, pressMove, warmCache } from './notices'
 import { HANDOFF_AT, nextMove, payback, quietSoon } from './next'
 import { GLYPHS, dotColor, dotHint, dotsOf, fleetRows } from './fleet'
+import { foldedOf, newsOf, pressed } from './fold'
 import type { Seen } from './next'
 import { cellsOfSplit, splitSvg } from './advice'
 import type { ChoiceKey } from './advice'
@@ -86,6 +87,9 @@ const fresh = atom({ plugin: 'token-usage', key: 'fresh' } as const, {})
 
 // The notice the crab is bringing; null once it has left or was sent away.
 const saying = atom({ plugin: 'token-usage', key: 'saying' } as const, null)
+// The fold button's press on the desktop's usage card, held while the card's
+// news is the one it was pressed on (fold.ts).
+const foldAtom = atom({ plugin: 'token-usage', key: 'fold' } as const, null)
 
 // Dollars by day, for every session, held here to draw; the store keeps what
 // of the day's budget was told, and the days counted before sessions had
@@ -137,6 +141,11 @@ const FRAME = { borderStyle: 'round', borderDimColor: true, paddingX: 1, marginB
 const MIX_WORD = ' context'
 
 type DrawBandHook = MatchedHook<'ui.render', { component: 'AbovePrompt' }>
+
+/** The fold button pressed on the usage card, `folded` now and its news `news`: it holds the other. */
+async function pressFold($: EngineInterface, news: string | null, folded: boolean) {
+  await update($, foldAtom, () => pressed(news, folded))
+}
 
 // The cache as the band counts it, and the one way on that fits: from the
 // context, the cache, the hour and this session's turns. The band draws it;
@@ -224,7 +233,8 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
       style.quiet !== null && isQuiet(style.quiet, at)
         ? `quiet until ${String(style.quiet.to).padStart(2, '0')}:00`
         : null
-    const speaking = heard(await read($, saying), style, at)
+    const said = await read($, saying)
+    const speaking = heard(said, style, at)
     const talk = speaking?.notice ?? null
     // Sent away or out of time, the crab walks off alone: its words and
     // buttons go at once, so a press shows and cannot be pressed again.
@@ -391,7 +401,22 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
             : {}),
         ...(counting === null ? {} : { cache: { text: counting.text, bar: CACHE_BAR_PX, button: hasWarm ? WARM : null } }),
       }
-      const fitted = fit(wish, bodyColumns)
+      // The card's news: the crab out, the cache lapsed, the context with
+      // something to do, quiet hours, trouble. With none it folds to its
+      // figures; a press of its fold button holds until the news changes.
+      const cardNews = newsOf({
+        crab: talk === null || said === null ? null : { kind: talk.kind, at: said.at },
+        lapsed: cacheSaid === null ? null : (paused?.at ?? 'test'),
+        context: news === null ? null : String(news.tone),
+        quiet: quiet !== null,
+        trouble: problems,
+      })
+      const folded = foldedOf(cardNews, await read($, foldAtom))
+      // Folded, the row is fitted to the context and the windows alone.
+      const shownWish: Wish = folded
+        ? { layout: wish.layout, context: wish.context, windows: wish.windows, usedWord: wish.usedWord, leftWord: wish.leftWord, eta: null, cost: null, action: null }
+        : wish
+      const fitted = fit(shownWish, bodyColumns)
       const isSnug = fitted.layout !== style.layout
       const named = isSnug ? snug : wished
       const ringed = ringSvg(percent, named.context, e.props.isWorking, palette, {
@@ -521,7 +546,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
               </Text>
             </Box>
           ))}
-          {stage !== null && talk !== null && (
+          {!folded && stage !== null && talk !== null && (
             // The notice keeps a row's space from the figures beneath it.
             <Box key="crab-stage" gap={2} alignItems="center" flexWrap="wrap" marginBottom={2}>
               <Box flexShrink={0}>{figure(stage, stage.width, stage.height)}</Box>
@@ -571,7 +596,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
                 {fitted.hasContextWord && held !== null && <Box>{mix(DESKTOP_CELLS, '▬')}</Box>}
               </Box>
             )}
-            {press !== null && <Box flexShrink={0}>{press}</Box>}
+            {!folded && press !== null && <Box flexShrink={0}>{press}</Box>}
             {drawWindows({ Box, Text, Svg }, fitted.layout, windows, palette, named, hasWords)}
             {fitted.hasEta && band.eta !== null && (
               <Box flexShrink={0}>
@@ -596,7 +621,7 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
               </Box>
             )}
             {fitted.hasCost && cacheSaid !== null && <Box flexShrink={0}>{cacheText(cacheSaid)}</Box>}
-            {counting !== null && (
+            {!folded && counting !== null && (
               <Box key="cache" gap={1} alignItems="center" flexShrink={0}>
                 {figure(clockSvg(palette[counting.tone]), CLOCK_PX, CLOCK_PX)}
                 <Text color={counting.tone} hover={{ scope: HINT_CACHE, underline: true }}>
@@ -612,14 +637,17 @@ export async function drawBand($: Parameters<DrawBandHook>[0], e: Parameters<Dra
               </Box>
             )}
             {fitted.hasCost && newsPress !== null && <Box flexShrink={0}>{newsPress}</Box>}
-            {dots.length > 0 && (
+            {!folded && dots.length > 0 && (
               <Box key="fleet" gap={1} alignItems="center" flexShrink={0}>
                 {dotsDrawn(true)}
                 {more > 0 && <Text dimColor>{moreText.trim()}</Text>}
               </Box>
             )}
+            <Box key="usage-fold" flexShrink={0}>
+              <Button key="usage-fold" label={folded ? '▸' : '▾'} onPress={() => void pressFold($, cardNews, folded)} />
+            </Box>
           </Box>
-          {problems.map(line => (
+          {!folded && problems.map(line => (
             <Text dimColor>{line}</Text>
           ))}
         </Box>

@@ -1,7 +1,7 @@
 import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
-import { beneathBand, TYPED } from './kit'
+import { beneathBand, TYPED, openCard } from './kit'
 
 // The fleet on the disk: each session's own file through its life, every
 // session's read back, the summary, and what /tokens fleet says.
@@ -225,6 +225,7 @@ const dotTexts = async (ui: { findAll: (query: { type: 'Text' }) => Promise<{ te
   (await ui.findAll({ type: 'Text' })).filter(({ text }) => ['●', '◉', '○'].includes(text))
 
 test('alone, the band draws no dots; with others, a dot each in its phase, and a hint each on the desktop', async ($, on) => {
+  openCard(on)
   const alone: Files = {}
 
   world(on, alone, { id: 'mine' })
@@ -255,6 +256,7 @@ test('alone, the band draws no dots; with others, a dot each in its phase, and a
 })
 
 test('eight sessions draw six dots and say the rest; hidden, none', async ($, on) => {
+  openCard(on)
   world(on, others(7), { id: 'mine' })
   await $.session.start({ cwd: 'D:/work/hub', surface: 'desktop', isInteractive: true })
   await $.session.measure(sized(120_000))

@@ -31,3 +31,18 @@ export const beneathBand = (on: On, children = '') => {
   )
   on('ui.render', MOD_ROW, (beneath, e) => beneath.ui.resolve(e).Text({ children }))
 }
+
+// The usage card held open on the desktop, as it was before it folded on its
+// own (hooks/fold.ts): for the tests of what an open card draws. Until the
+// mod writes its own press, the press read is "open, for no news".
+export const openCard = (on: On) => {
+  on('state.get', async (_$, e, next) => {
+    const answer = await next(e)
+    const name = e as { plugin?: unknown; key?: unknown }
+    const held = answer.value
+
+    return name.plugin === 'token-usage' && name.key === 'fold' && held !== undefined && held.value === undefined
+      ? { value: { ...held, value: { news: null, folded: false } } }
+      : answer
+  })
+}
